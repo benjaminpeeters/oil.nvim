@@ -1,5 +1,25 @@
 # oil.nvim
 
+> ## This is a personal fork
+>
+> Upstream is [stevearc/oil.nvim](https://github.com/stevearc/oil.nvim) — nearly
+> everything here is Steve Arcand's work, under the same MIT license. If you are
+> looking to install oil, install upstream, not this.
+>
+> This fork exists to carry a handful of changes that oil's configuration cannot
+> express, plus my own preferences. It is not intended as a competing
+> distribution and I do not expect to maintain it for anyone else.
+>
+> - Fork point: [`7e1cd77`](https://github.com/stevearc/oil.nvim/commit/7e1cd7703ff2924d7038476dcbc04b950203b902)
+>   (2025-10-19), also available as the tag `upstream-base`.
+> - Working branch: `ben`. `master` is kept as a pristine mirror of upstream, so
+>   `git diff master..ben` is always exactly the delta.
+>
+> ### Changes from upstream
+>
+> Nothing yet — at the fork point this tree is byte-identical to upstream. This
+> list is updated as changes land.
+
 A [vim-vinegar](https://github.com/tpope/vim-vinegar) like file explorer that lets you edit your filesystem like a normal Neovim buffer.
 
 https://user-images.githubusercontent.com/506791/209727111-6b4a11f4-634a-4efa-9461-80e9717cea94.mp4
