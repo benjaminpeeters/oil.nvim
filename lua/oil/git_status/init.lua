@@ -1,0 +1,281 @@
+-- Vendored from refractalize/oil-git-status.nvim at commit 4b5cf53,
+-- lua/oil-git-status.lua. Copyright (c) 2025 Tim Macfarlane, MIT.
+-- Full license text in LICENSE-oil-git-status at the repository root.
+--
+-- Changes from upstream:
+--   * lives inside oil, so config comes from config.git_status and the
+--     highlight groups are registered by oil's _get_highlights/set_colors
+--     rather than by nvim_set_hl calls here
+--   * load_git_status guards on filetype and adapter scheme (see there)
+--   * require("oil") happens inside the function that needs it, not at
+--     module scope, so requiring this module early is not a load-order trap
+
+local M = {}
+
+local namespace = vim.api.nvim_create_namespace("oil-git-status")
+local system = require("oil.git_status.system").system
+
+local current_config = {
+  show_ignored = true,
+  symbols = {
+    index = {},
+    working_tree = {},
+  },
+}
+
+local function set_filename_status_code(filename, index_status_code, working_status_code, status)
+  local dir_index = filename:find("/")
+  if dir_index ~= nil then
+    filename = filename:sub(1, dir_index - 1)
+
+    if not status[filename] then
+      status[filename] = {
+        index = index_status_code,
+        working_tree = working_status_code,
+      }
+    else
+      if index_status_code ~= " " then
+        status[filename].index = "M"
+      end
+      if working_status_code ~= " " then
+        status[filename].working_tree = "M"
+      end
+    end
+  else
+    status[filename] = {
+      index = index_status_code,
+      working_tree = working_status_code,
+    }
+  end
+end
+
+--- @param s string
+--- @return string
+local function unquote_git_file_name(s)
+  -- git-ls-tree and git-status show '\file".md' as `"\\file\".md"`.
+  local out, _ = s:gsub('"(.*)"', "%1"):gsub('\\"', '"'):gsub("\\\\", "\\")
+  return out
+end
+
+---@param git_status_stdout string
+---@param git_ls_tree_stdout string
+---@return table<string, {index: string, working_tree: string}>
+function M.parse_git_status(git_status_stdout, git_ls_tree_stdout)
+  local status_lines = vim.split(git_status_stdout, "\n")
+  local status = {}
+  for _, line in ipairs(status_lines) do
+    local index_status_code = line:sub(1, 1)
+    local working_status_code = line:sub(2, 2)
+    local filename = unquote_git_file_name(line:sub(4))
+
+    if vim.endswith(filename, "/") then
+      filename = filename:sub(1, -2)
+    end
+
+    set_filename_status_code(filename, index_status_code, working_status_code, status)
+  end
+
+  for _, filename in ipairs(vim.split(git_ls_tree_stdout, "\n")) do
+    filename = unquote_git_file_name(filename)
+    if not status[filename] then
+      status[filename] = { index = " ", working_tree = " " }
+    end
+  end
+
+  return status
+end
+
+local highlight_group_suffix_for_status_code = {
+  ["!"] = "Ignored",
+  ["?"] = "Untracked",
+  ["A"] = "Added",
+  ["C"] = "Copied",
+  ["D"] = "Deleted",
+  ["M"] = "Modified",
+  ["R"] = "Renamed",
+  ["T"] = "TypeChanged",
+  ["U"] = "Unmerged",
+  [" "] = "Unmodified",
+}
+
+M.status_code_suffixes = highlight_group_suffix_for_status_code
+
+local function highlight_group(code, index)
+  local location = index and "Index" or "WorkingTree"
+
+  return "OilGitStatus" .. location .. (highlight_group_suffix_for_status_code[code] or "Unmodified")
+end
+
+local function get_symbol(symbols, code)
+  return symbols[code] or code
+end
+
+local function add_status_extmarks(buffer, status)
+  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+
+  if status then
+    local oil = require("oil")
+    for n = 1, vim.api.nvim_buf_line_count(buffer) do
+      local entry = oil.get_entry_on_line(buffer, n)
+      if entry and entry.name ~= ".." then
+        local name = entry.name
+
+        local status_codes = status[name] or (current_config.show_ignored and { index = "!", working_tree = "!" })
+
+        if status_codes then
+          vim.api.nvim_buf_set_extmark(buffer, namespace, n - 1, 0, {
+            sign_text = get_symbol(current_config.symbols.index, status_codes.index),
+            sign_hl_group = highlight_group(status_codes.index, true),
+            priority = 2,
+          })
+          vim.api.nvim_buf_set_extmark(buffer, namespace, n - 1, 0, {
+            sign_text = get_symbol(current_config.symbols.working_tree, status_codes.working_tree),
+            sign_hl_group = highlight_group(status_codes.working_tree, false),
+            priority = 1,
+          })
+        end
+      end
+    end
+  end
+end
+
+local function concurrent(fns, callback)
+  local number_of_results = 0
+  local results = {}
+
+  for i, fn in ipairs(fns) do
+    fn(function(args, ...)
+      number_of_results = number_of_results + 1
+      results[i] = args
+
+      if number_of_results == #fns then
+        callback(results, ...)
+      end
+    end)
+  end
+end
+
+---Whether this buffer is one we can run `git status` against.
+---
+---Two separate conditions, both required:
+---  * filetype, because buffer numbers are recycled. An oil buffer can be wiped
+---    and its number reused by a normal file, leaving the buffer-local
+---    BufWritePost autocmd attached to a non-oil buffer.
+---  * adapter scheme, because the url rewrite below is `oil` -> `file`. On an
+---    `oil-ssh://host/path` buffer that yields `file-ssh://...`, and the path
+---    it produces is not a local path. Skipping non-files adapters is correct,
+---    not a limitation.
+---@param buffer integer
+---@return boolean
+function M.should_load_status(buffer)
+  if vim.bo[buffer].filetype ~= "oil" then
+    return false
+  end
+  local name = vim.api.nvim_buf_get_name(buffer)
+  return require("oil.util").parse_url(name) == "oil://"
+end
+
+local function load_git_status(buffer, callback)
+  if not M.should_load_status(buffer) then
+    return
+  end
+  local oil_url = vim.api.nvim_buf_get_name(buffer)
+  local file_url = oil_url:gsub("^oil", "file")
+  if vim.fn.has("win32") == 1 then
+    file_url = file_url:gsub("file:///([A-Za-z])/", "file:///%1:/")
+  end
+  local path = vim.uri_to_fname(file_url)
+  concurrent({
+    function(cb)
+      -- quotepath=false - don't escape UTF-8 paths.
+      system(
+        { "git", "-c", "core.quotepath=false", "-c", "status.relativePaths=true", "status", ".", "--short" },
+        { text = true, cwd = path },
+        cb
+      )
+    end,
+    function(cb)
+      if current_config.show_ignored then
+        -- quotepath=false - don't escape UTF-8 paths.
+        system(
+          { "git", "-c", "core.quotepath=false", "ls-tree", "HEAD", ".", "--name-only" },
+          { text = true, cwd = path },
+          cb
+        )
+      else
+        cb({ code = 0, stdout = "" })
+      end
+    end,
+  }, function(results)
+    vim.schedule(function()
+      local git_status_results = results[1]
+      local git_ls_tree_results = results[2]
+
+      if git_ls_tree_results.code ~= 0 or git_status_results.code ~= 0 then
+        return callback()
+      end
+
+      callback(M.parse_git_status(git_status_results.stdout, git_ls_tree_results.stdout))
+    end)
+  end)
+end
+
+---Two signs per line need two sign columns. Warn rather than coerce: the user
+---set signcolumn explicitly, and silently overriding it would hide the reason
+---the signs are missing.
+local function validate_signcolumn()
+  local signcolumn = require("oil.config").win_options.signcolumn
+  if not (vim.startswith(signcolumn, "yes") or vim.startswith(signcolumn, "auto")) then
+    vim.notify(
+      "oil git_status requires win_options.signcolumn to be set to at least 'yes:2' or 'auto:2'",
+      vim.log.levels.WARN,
+      { title = "oil.git_status" }
+    )
+  end
+end
+
+---@param config {show_ignored: boolean, symbols: table}
+function M.setup(config)
+  current_config = vim.tbl_deep_extend("force", current_config, config or {})
+
+  validate_signcolumn()
+
+  vim.api.nvim_create_autocmd({ "FileType" }, {
+    pattern = { "oil" },
+    group = vim.api.nvim_create_augroup("OilGitStatus", { clear = true }),
+
+    callback = function()
+      local buffer = vim.api.nvim_get_current_buf()
+      local current_status = nil
+
+      if vim.b[buffer].oil_git_status_started then
+        return
+      end
+
+      vim.b[buffer].oil_git_status_started = true
+
+      vim.api.nvim_create_autocmd({ "BufReadPost", "BufWritePost" }, {
+        buffer = buffer,
+
+        callback = function()
+          load_git_status(buffer, function(status)
+            current_status = status
+            add_status_extmarks(buffer, current_status)
+          end)
+        end,
+      })
+
+      vim.api.nvim_create_autocmd({ "InsertLeave", "TextChanged" }, {
+        buffer = buffer,
+
+        callback = function()
+          if current_status then
+            add_status_extmarks(buffer, current_status)
+          end
+        end,
+      })
+    end,
+  })
+end
+
+return M

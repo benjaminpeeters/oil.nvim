@@ -199,6 +199,18 @@ local default_config = {
   keymaps_help = {
     border = nil,
   },
+  -- Git status signs in the sign column (vendored oil-git-status).
+  -- Needs win_options.signcolumn set to at least "yes:2": two signs per line.
+  git_status = {
+    enabled = false,
+    show_ignored = true,
+    -- Map a git status code to the character shown, e.g. { M = "~" }.
+    -- Codes with no entry are shown as the code itself.
+    symbols = {
+      index = {},
+      working_tree = {},
+    },
+  },
 }
 
 -- The adapter API hasn't really stabilized yet. We're not ready to advertise or encourage people to

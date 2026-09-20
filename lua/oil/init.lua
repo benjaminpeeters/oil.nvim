@@ -822,7 +822,7 @@ end
 
 ---@private
 M._get_highlights = function()
-  return {
+  local highlights = {
     {
       name = "OilHidden",
       link = "Comment",
@@ -949,6 +949,34 @@ M._get_highlights = function()
       desc = "Virtual text that shows the original path of file in the trash",
     },
   }
+
+  -- Git status signs (vendored oil-git-status). Two base groups plus one per
+  -- status code, each linking to its base, so a colorscheme can recolour every
+  -- index sign at once or target a single code.
+  table.insert(highlights, {
+    name = "OilGitStatusIndex",
+    link = "DiagnosticSignInfo",
+    desc = "Git index (staged) sign in an oil buffer",
+  })
+  table.insert(highlights, {
+    name = "OilGitStatusWorkingTree",
+    link = "DiagnosticSignWarn",
+    desc = "Git working tree (unstaged) sign in an oil buffer",
+  })
+  for code, suffix in pairs(require("oil.git_status").status_code_suffixes) do
+    table.insert(highlights, {
+      name = "OilGitStatusIndex" .. suffix,
+      link = "OilGitStatusIndex",
+      desc = string.format("Git index sign for status code '%s'", code),
+    })
+    table.insert(highlights, {
+      name = "OilGitStatusWorkingTree" .. suffix,
+      link = "OilGitStatusWorkingTree",
+      desc = string.format("Git working tree sign for status code '%s'", code),
+    })
+  end
+
+  return highlights
 end
 
 local function set_colors()
@@ -1401,6 +1429,13 @@ M.setup = function(opts)
       end
     end,
   })
+
+  -- Before the hijack below: that call loads the `nvim .` directory buffer, and
+  -- git_status hooks FileType oil, so registering after it would miss the very
+  -- first buffer of the session.
+  if config.git_status.enabled then
+    require("oil.git_status").setup(config.git_status)
+  end
 
   local bufnr = vim.api.nvim_get_current_buf()
   if maybe_hijack_directory_buffer(bufnr) and vim.v.vim_did_enter == 1 then

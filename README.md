@@ -17,8 +17,17 @@
 >
 > ### Changes from upstream
 >
-> Nothing yet — at the fork point this tree is byte-identical to upstream. This
-> list is updated as changes land.
+> - Vendored [refractalize/oil-git-status.nvim](https://github.com/refractalize/oil-git-status.nvim)
+>   (MIT, Tim Macfarlane) as `lua/oil/git_status/`, off by default and enabled
+>   with `git_status = { enabled = true }`. Upstream of that plugin has had no
+>   commits since 2025-04-03; vendoring it makes a local fix permanent instead of
+>   something a plugin-manager update silently reverts. Its license is kept
+>   verbatim in `LICENSE-oil-git-status`.
+> - That fix: `git status` is only loaded for a buffer whose filetype is `oil`
+>   and whose adapter is `oil://`. Buffer numbers get recycled, so a wiped oil
+>   buffer's number can be reused by a normal file while its autocmd is still
+>   attached, which used to raise "URI must contain a scheme" on every save.
+>   Covered by `tests/git_status_spec.lua`.
 
 A [vim-vinegar](https://github.com/tpope/vim-vinegar) like file explorer that lets you edit your filesystem like a normal Neovim buffer.
 
