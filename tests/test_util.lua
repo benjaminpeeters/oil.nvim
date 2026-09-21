@@ -11,6 +11,15 @@ M.reset_editor = function()
       ["oil-test://"] = "test",
     },
     prompt_save_on_select_new_entry = false,
+    -- This fork's defaults differ from upstream's, and these specs were written
+    -- against upstream's. Pin the ones that change how mutations behave or that
+    -- add background activity: spec files run as parallel nvim processes, and a
+    -- directory watcher plus two git jobs per oil buffer in each of them made
+    -- the suite flaky (a spec silently not reporting, a search landing on the
+    -- wrong line). Specs that need one of these turn it on themselves.
+    delete_to_trash = false,
+    watch_for_changes = false,
+    git_status = { enabled = false },
   })
   vim.cmd.tabonly({ mods = { silent = true } })
   for i, winid in ipairs(vim.api.nvim_tabpage_list_wins(0)) do

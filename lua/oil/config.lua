@@ -1,3 +1,17 @@
+-- Shell and tool droppings that are never worth seeing, even with hidden files shown
+local always_hidden = {
+  [".."] = true,
+  [".bash_history"] = true,
+  [".python_history"] = true,
+  [".viminfo"] = true,
+  [".lesshst"] = true,
+  [".wget-hsts"] = true,
+  [".histfile"] = true,
+  [".zcompdump"] = true,
+  [".Xauthority"] = true,
+  [".sudo_as_admin_successful"] = true,
+}
+
 local default_config = {
   -- Oil will take over directory buffers (e.g. `vim .` or `:e src/`)
   -- Set to false if you want some other plugin (e.g. netrw) to open when you edit directories.
@@ -5,7 +19,7 @@ local default_config = {
   -- Id is automatically added at the beginning, and name at the end
   -- See :help oil-columns
   columns = {
-    "icon",
+    -- "icon",
     -- "permissions",
     -- "size",
     -- "mtime",
@@ -18,7 +32,11 @@ local default_config = {
   -- Window-local options to use for oil buffers
   win_options = {
     wrap = false,
-    signcolumn = "no",
+    -- Two columns: git_status draws an index sign and a working tree sign per line
+    signcolumn = "yes:2",
+    number = false,
+    relativenumber = false,
+    cursorline = true,
     cursorcolumn = false,
     foldcolumn = "0",
     spell = false,
@@ -27,9 +45,9 @@ local default_config = {
     concealcursor = "nvic",
   },
   -- Send deleted files to the trash instead of permanently deleting them (:help oil-trash)
-  delete_to_trash = false,
+  delete_to_trash = true,
   -- Skip the confirmation popup for simple operations (:help oil.skip_confirm_for_simple_edits)
-  skip_confirm_for_simple_edits = false,
+  skip_confirm_for_simple_edits = true,
   -- Selecting a new/moved/renamed file or directory will prompt you to save changes first
   -- (:help prompt_save_on_select_new_entry)
   prompt_save_on_select_new_entry = true,
@@ -39,7 +57,8 @@ local default_config = {
   cleanup_delay_ms = 2000,
   lsp_file_methods = {
     -- Enable or disable LSP file operations
-    enabled = true,
+    -- Off: they raised glob errors and raced with oil's own mutations
+    enabled = false,
     -- Time to wait for LSP file operations to complete before skipping
     timeout_ms = 1000,
     -- Set to true to autosave buffers that are updated with LSP willRenameFiles
@@ -50,7 +69,7 @@ local default_config = {
   -- Set to `false` to disable, or "name" to keep it on the file names
   constrain_cursor = "editable",
   -- Set to true to watch the filesystem for changes and reload oil
-  watch_for_changes = false,
+  watch_for_changes = true,
   -- Keymaps in oil buffer. Can be any value that `vim.keymap.set` accepts OR a table of keymap
   -- options with a `callback` (e.g. { callback = function() ... end, desc = "", mode = "n" })
   -- Additionally, if it is a string that matches "actions.<name>",
@@ -58,22 +77,26 @@ local default_config = {
   -- Set to `false` to remove a keymap
   -- See :help oil-actions for a list of all available actions
   keymaps = {
-    ["g?"] = { "actions.show_help", mode = "n" },
-    ["<CR>"] = "actions.select",
-    ["<C-s>"] = { "actions.select", opts = { vertical = true } },
-    ["<C-h>"] = { "actions.select", opts = { horizontal = true } },
-    ["<C-t>"] = { "actions.select", opts = { tab = true } },
-    ["<C-p>"] = "actions.preview",
-    ["<C-c>"] = { "actions.close", mode = "n" },
-    ["<C-l>"] = "actions.refresh",
-    ["-"] = { "actions.parent", mode = "n" },
-    ["_"] = { "actions.open_cwd", mode = "n" },
-    ["`"] = { "actions.cd", mode = "n" },
-    ["g~"] = { "actions.cd", opts = { scope = "tab" }, mode = "n" },
-    ["gs"] = { "actions.change_sort", mode = "n" },
-    ["gx"] = "actions.open_external",
-    ["g."] = { "actions.toggle_hidden", mode = "n" },
-    ["g\\"] = { "actions.toggle_trash", mode = "n" },
+    ["?"] = { "actions.show_help", mode = "n" },
+    ["<CR>"] = "actions.select_and_cd",
+    ["-"] = "actions.parent_and_cd",
+    ["L"] = { "actions.select_split", opts = { direction = "right" } },
+    ["H"] = { "actions.select_split", opts = { direction = "left" } },
+    ["J"] = { "actions.select_split", opts = { direction = "down" } },
+    ["K"] = { "actions.select_split", opts = { direction = "up" } },
+    ["t"] = "actions.select_tab",
+    ["P"] = { "actions.preview", opts = { split = "botright", vertical = true } },
+    ["gp"] = "actions.wezterm_preview",
+    ["q"] = "actions.close",
+    ["Y"] = "actions.yank_path_to_clipboard",
+    ["X"] = "actions.open_by_type",
+    ["R"] = "actions.open_terminal",
+    ["dc"] = "actions.trash_put",
+    ["D"] = "actions.delete_permanently",
+    ["M"] = "actions.move_to_dir",
+    ["T"] = "actions.toggle_trash",
+    ["gs"] = "actions.change_sort",
+    [".."] = "actions.toggle_hidden",
   },
   -- Set to false to disable all of the above keymaps
   use_default_keymaps = true,
@@ -82,16 +105,15 @@ local default_config = {
     show_hidden = false,
     -- This function defines what is considered a "hidden" file
     is_hidden_file = function(name, bufnr)
-      local m = name:match("^%.")
-      return m ~= nil
+      return vim.startswith(name, ".") or name == "snap"
     end,
     -- This function defines what will never be shown, even when `show_hidden` is set
     is_always_hidden = function(name, bufnr)
-      return false
+      return always_hidden[name] == true
     end,
     -- Sort file names with numbers in a more intuitive order for humans.
     -- Can be "fast", true, or false. "fast" will turn it off for large directories.
-    natural_order = "fast",
+    natural_order = true,
     -- Sort file and directory names case insensitive
     case_insensitive = false,
     sort = {
@@ -204,7 +226,7 @@ local default_config = {
   -- Git status signs in the sign column (vendored oil-git-status).
   -- Needs win_options.signcolumn set to at least "yes:2": two signs per line.
   git_status = {
-    enabled = false,
+    enabled = true,
     show_ignored = true,
     -- Map a git status code to the character shown, e.g. { M = "~" }.
     -- Codes with no entry are shown as the code itself.

@@ -20,8 +20,8 @@
 > ### Changes from upstream
 >
 > - Vendored [refractalize/oil-git-status.nvim](https://github.com/refractalize/oil-git-status.nvim)
->   (MIT, Tim Macfarlane) as `lua/oil/git_status/`, off by default and enabled
->   with `git_status = { enabled = true }`. Upstream of that plugin has had no
+>   (MIT, Tim Macfarlane) as `lua/oil/git_status/`, on by default
+>   (`git_status = { enabled = false }` turns it off). Upstream of that plugin has had no
 >   commits since 2025-04-03; vendoring it makes a local fix permanent instead of
 >   something a plugin-manager update silently reverts. Its license is kept
 >   verbatim in `LICENSE-oil-git-status`.
@@ -30,6 +30,21 @@
 >   buffer's number can be reused by a normal file while its autocmd is still
 >   attached, which used to raise "URI must contain a scheme" on every save.
 >   Covered by `tests/git_status_spec.lua`.
+> - New actions, in `lua/oil/extra_actions.lua`: `select_split` (open in a split
+>   on a given side), `select_and_cd` and `parent_and_cd` (navigate and change
+>   the working directory, returning to where you came from after following a
+>   symlink), `yank_path_to_clipboard`, `open_by_type`, `open_terminal`,
+>   `trash_put`, `delete_permanently` and `move_to_dir`.
+> - `actions.wezterm_preview`: previews the entry under the cursor in a WezTerm
+>   pane. Derived from [mimikun/oil-image-preview.nvim](https://github.com/mimikun/oil-image-preview.nvim)
+>   (MIT, Yuto Tanaka), license kept verbatim in `LICENSE-oil-image-preview`.
+> - The defaults are mine, not upstream's. The default keymaps are replaced
+>   wholesale (see `keymaps` in `lua/oil/config.lua`), and these options differ:
+>   no icon column, `signcolumn = "yes:2"` with `cursorline` and no line numbers,
+>   `delete_to_trash`, `skip_confirm_for_simple_edits` and `watch_for_changes`
+>   on, LSP file methods off, natural sort order always, `snap` treated as
+>   hidden, and a list of shell history files that are never shown. The test
+>   suite pins upstream's values where the specs depend on them.
 
 A [vim-vinegar](https://github.com/tpope/vim-vinegar) like file explorer that lets you edit your filesystem like a normal Neovim buffer.
 
