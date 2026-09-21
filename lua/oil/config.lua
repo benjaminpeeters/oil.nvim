@@ -123,8 +123,14 @@ local default_config = {
       { "name", "asc" },
     },
     -- Customize the highlight group for the file name
+    -- Default: colour by extension, by a few exact names, and links by their target
     highlight_filename = function(entry, is_hidden, is_link_target, is_link_orphan)
-      return nil
+      return require("oil.ext_highlight").highlight_filename(
+        entry,
+        is_hidden,
+        is_link_target,
+        is_link_orphan
+      )
     end,
   },
   -- Extra arguments to pass to SCP when moving/copying files over SSH
@@ -251,9 +257,9 @@ default_config.adapters = {
   ["oil-trash://"] = "trash",
 }
 default_config.adapter_aliases = {}
--- We want the function in the default config for documentation generation, but if we nil it out
--- here we can get some performance wins
-default_config.view_options.highlight_filename = nil
+-- Upstream sets default_config.view_options.highlight_filename to nil here, because its default
+-- is a no-op kept only for documentation and skipping it saves an export_entry per line. In this
+-- fork the default does real work (oil.ext_highlight), so it stays.
 
 ---@class oil.Config
 ---@field adapters table<string, string> Hidden from SetupOpts

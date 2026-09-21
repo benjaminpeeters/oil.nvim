@@ -955,6 +955,24 @@ M._get_highlights = function()
     },
   }
 
+  -- Groups used by oil.ext_highlight. No link on purpose: a colorscheme or config
+  -- gives them colours, and without one these entries look like plain files.
+  local ext_highlight = require("oil.ext_highlight")
+  for _, group in ipairs(ext_highlight.groups) do
+    table.insert(highlights, {
+      name = group[1],
+      link = nil,
+      desc = "Files with the extension " .. table.concat(group[2], ", "),
+    })
+  end
+  for file_name, group_name in pairs(ext_highlight.names) do
+    table.insert(highlights, {
+      name = group_name,
+      link = nil,
+      desc = "Files named " .. file_name,
+    })
+  end
+
   -- Git status signs (vendored oil-git-status). Two base groups plus one per
   -- status code, each linking to its base, so a colorscheme can recolour every
   -- index sign at once or target a single code.

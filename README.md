@@ -38,6 +38,14 @@
 > - `actions.wezterm_preview`: previews the entry under the cursor in a WezTerm
 >   pane. Derived from [mimikun/oil-image-preview.nvim](https://github.com/mimikun/oil-image-preview.nvim)
 >   (MIT, Yuto Tanaka), license kept verbatim in `LICENSE-oil-image-preview`.
+> - Entries are coloured by extension, by a few exact names (`README.md`), and
+>   symlinks by what they point at: `lua/oil/ext_highlight.lua`, used as the
+>   default `view_options.highlight_filename`. It is a per-entry hook rather
+>   than syntax rules anchored at the end of the line, so it keeps working when
+>   something is rendered after the file name. The groups (`OilMarkdown`,
+>   `OilPython`, ...) have no colours of their own; a colorscheme assigns them.
+>   Upstream clears its default hook after defining it, this fork does not, and
+>   `tests/ext_highlight_spec.lua` fails if that line ever comes back.
 > - The defaults are mine, not upstream's. The default keymaps are replaced
 >   wholesale (see `keymaps` in `lua/oil/config.lua`), and these options differ:
 >   no icon column, `signcolumn = "yes:2"` with `cursorline` and no line numbers,
