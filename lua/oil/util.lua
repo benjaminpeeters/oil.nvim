@@ -91,34 +91,28 @@ M.get_adapter = function(bufnr, silent)
 end
 
 ---@param text string
----@param length nil|integer
----@return string
-M.rpad = function(text, length)
-  if not length then
-    return text
+---@param width integer|nil
+---@param align oil.ColumnAlign
+---@return string padded_text
+---@return integer left_padding
+M.pad_align = function(text, width, align)
+  if not width then
+    return text, 0
   end
-  local textlen = vim.api.nvim_strwidth(text)
-  local delta = length - textlen
-  if delta > 0 then
-    return text .. string.rep(" ", delta)
-  else
-    return text
+  local text_width = vim.api.nvim_strwidth(text)
+  local total_pad = width - text_width
+  if total_pad <= 0 then
+    return text, 0
   end
-end
 
----@param text string
----@param length nil|integer
----@return string
-M.lpad = function(text, length)
-  if not length then
-    return text
-  end
-  local textlen = vim.api.nvim_strwidth(text)
-  local delta = length - textlen
-  if delta > 0 then
-    return string.rep(" ", delta) .. text
+  if align == "right" then
+    return string.rep(" ", total_pad) .. text, total_pad
+  elseif align == "center" then
+    local left_pad = math.floor(total_pad / 2)
+    local right_pad = total_pad - left_pad
+    return string.rep(" ", left_pad) .. text .. string.rep(" ", right_pad), left_pad
   else
-    return text
+    return text .. string.rep(" ", total_pad), 0
   end
 end
 
@@ -314,11 +308,15 @@ M.split_config = function(name_or_config)
   end
 end
 
+---@alias oil.ColumnAlign "left"|"center"|"right"
+
 ---@param lines oil.TextChunk[][]
 ---@param col_width integer[]
+---@param col_align? oil.ColumnAlign[]
 ---@return string[]
 ---@return any[][] List of highlights {group, lnum, col_start, col_end}
-M.render_table = function(lines, col_width)
+M.render_table = function(lines, col_width, col_align)
+  col_align = col_align or {}
   local str_lines = {}
   local highlights = {}
   for _, cols in ipairs(lines) do
@@ -332,9 +330,12 @@ M.render_table = function(lines, col_width)
       else
         text = chunk
       end
-      text = M.rpad(text, col_width[i])
+
+      local unpadded_len = text:len()
+      local padding
+      text, padding = M.pad_align(text, col_width[i], col_align[i] or "left")
+
       table.insert(pieces, text)
-      local col_end = col + text:len() + 1
       if hl then
         if type(hl) == "table" then
           -- hl has the form { [1]: hl_name, [2]: col_start, [3]: col_end }[]
@@ -344,15 +345,15 @@ M.render_table = function(lines, col_width)
             table.insert(highlights, {
               sub_hl[1],
               #str_lines,
-              col + sub_hl[2],
-              col + sub_hl[3],
+              col + padding + sub_hl[2],
+              col + padding + sub_hl[3],
             })
           end
         else
-          table.insert(highlights, { hl, #str_lines, col, col_end })
+          table.insert(highlights, { hl, #str_lines, col + padding, col + padding + unpadded_len })
         end
       end
-      col = col_end
+      col = col + text:len() + 1
     end
     table.insert(str_lines, table.concat(pieces, " "))
   end
@@ -417,109 +418,6 @@ M.get_title = function(winid)
   return title
 end
 
-local winid_map = {}
-M.add_title_to_win = function(winid, opts)
-  opts = opts or {}
-  opts.align = opts.align or "left"
-  if not vim.api.nvim_win_is_valid(winid) then
-    return
-  end
-  -- HACK to force the parent window to position itself
-  -- See https://github.com/neovim/neovim/issues/13403
-  vim.cmd.redraw()
-  local title = M.get_title(winid)
-  local width = math.min(vim.api.nvim_win_get_width(winid) - 4, 2 + vim.api.nvim_strwidth(title))
-  local title_winid = winid_map[winid]
-  local bufnr
-  if title_winid and vim.api.nvim_win_is_valid(title_winid) then
-    vim.api.nvim_win_set_width(title_winid, width)
-    bufnr = vim.api.nvim_win_get_buf(title_winid)
-  else
-    bufnr = vim.api.nvim_create_buf(false, true)
-    local col = 1
-    if opts.align == "center" then
-      col = math.floor((vim.api.nvim_win_get_width(winid) - width) / 2)
-    elseif opts.align == "right" then
-      col = vim.api.nvim_win_get_width(winid) - 1 - width
-    elseif opts.align ~= "left" then
-      vim.notify(
-        string.format("Unknown oil window title alignment: '%s'", opts.align),
-        vim.log.levels.ERROR
-      )
-    end
-    title_winid = vim.api.nvim_open_win(bufnr, false, {
-      relative = "win",
-      win = winid,
-      width = width,
-      height = 1,
-      row = -1,
-      col = col,
-      focusable = false,
-      zindex = 151,
-      style = "minimal",
-      noautocmd = true,
-    })
-    winid_map[winid] = title_winid
-    vim.api.nvim_set_option_value(
-      "winblend",
-      vim.wo[winid].winblend,
-      { scope = "local", win = title_winid }
-    )
-    vim.bo[bufnr].bufhidden = "wipe"
-
-    local update_autocmd = vim.api.nvim_create_autocmd("BufWinEnter", {
-      desc = "Update oil floating window title when buffer changes",
-      pattern = "*",
-      callback = function(params)
-        local winbuf = params.buf
-        if vim.api.nvim_win_get_buf(winid) ~= winbuf then
-          return
-        end
-        local new_title = M.get_title(winid)
-        local new_width =
-          math.min(vim.api.nvim_win_get_width(winid) - 4, 2 + vim.api.nvim_strwidth(new_title))
-        vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, { " " .. new_title .. " " })
-        vim.bo[bufnr].modified = false
-        vim.api.nvim_win_set_width(title_winid, new_width)
-        local new_col = 1
-        if opts.align == "center" then
-          new_col = math.floor((vim.api.nvim_win_get_width(winid) - new_width) / 2)
-        elseif opts.align == "right" then
-          new_col = vim.api.nvim_win_get_width(winid) - 1 - new_width
-        end
-        vim.api.nvim_win_set_config(title_winid, {
-          relative = "win",
-          win = winid,
-          row = -1,
-          col = new_col,
-          width = new_width,
-          height = 1,
-        })
-      end,
-    })
-    vim.api.nvim_create_autocmd("WinClosed", {
-      desc = "Close oil floating window title when floating window closes",
-      pattern = tostring(winid),
-      callback = function()
-        if title_winid and vim.api.nvim_win_is_valid(title_winid) then
-          vim.api.nvim_win_close(title_winid, true)
-        end
-        winid_map[winid] = nil
-        vim.api.nvim_del_autocmd(update_autocmd)
-      end,
-      once = true,
-      nested = true,
-    })
-  end
-  vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, { " " .. title .. " " })
-  vim.bo[bufnr].modified = false
-  vim.api.nvim_set_option_value(
-    "winhighlight",
-    "Normal:FloatTitle,NormalFloat:FloatTitle",
-    { scope = "local", win = title_winid }
-  )
-end
-
 ---@param action oil.Action
 ---@return oil.Adapter
 ---@return nil|oil.CrossAdapterAction
@@ -581,6 +479,7 @@ M.render_text = function(bufnr, text, opts)
     h_align = "center",
     v_align = "center",
   })
+  ---@cast opts table
   if not vim.api.nvim_buf_is_valid(bufnr) then
     return
   end
@@ -823,11 +722,12 @@ M.send_to_quickfix = function(opts)
   local action = opts.action == "a" and "a" or "r"
   if opts.target == "loclist" then
     vim.fn.setloclist(0, {}, action, { title = qf_title, items = qf_entries })
+    vim.cmd.lopen()
   else
     vim.fn.setqflist({}, action, { title = qf_title, items = qf_entries })
+    vim.cmd.copen()
   end
   vim.api.nvim_exec_autocmds("QuickFixCmdPost", {})
-  vim.cmd.copen()
 end
 
 ---@return boolean

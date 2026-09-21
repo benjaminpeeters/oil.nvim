@@ -49,7 +49,7 @@ https://user-images.githubusercontent.com/506791/209727111-6b4a11f4-634a-4efa-94
 
 ## Requirements
 
-- Neovim 0.8+
+- Neovim 0.10+ (for older versions, use a [nvim-0.x branch](https://github.com/stevearc/oil.nvim/branches))
 - Icon provider plugin (optional)
   - [mini.icons](https://github.com/nvim-mini/mini.nvim/blob/main/readmes/mini-icons.md) for file and folder icons
   - [nvim-web-devicons](https://github.com/nvim-tree/nvim-web-devicons) for file icons
@@ -118,6 +118,17 @@ Plug 'stevearc/oil.nvim'
 
 ```vim
 call dein#add('stevearc/oil.nvim')
+```
+
+</details>
+
+<details>
+  <summary>vim.pack (Neovim 0.12+)</summary>
+
+```lua
+vim.pack.add({
+    'https://github.com/stevearc/oil.nvim',
+})
 ```
 
 </details>
@@ -233,7 +244,7 @@ require("oil").setup({
     ["-"] = { "actions.parent", mode = "n" },
     ["_"] = { "actions.open_cwd", mode = "n" },
     ["`"] = { "actions.cd", mode = "n" },
-    ["~"] = { "actions.cd", opts = { scope = "tab" }, mode = "n" },
+    ["g~"] = { "actions.cd", opts = { scope = "tab" }, mode = "n" },
     ["gs"] = { "actions.change_sort", mode = "n" },
     ["gx"] = "actions.open_external",
     ["g."] = { "actions.toggle_hidden", mode = "n" },
@@ -271,6 +282,8 @@ require("oil").setup({
   },
   -- Extra arguments to pass to SCP when moving/copying files over SSH
   extra_scp_args = {},
+  -- Extra arguments to pass to aws s3 when creating/deleting/moving/copying files using aws s3
+  extra_s3_args = {},
   -- EXPERIMENTAL support for performing file operations with git
   git = {
     -- Return true to automatically git add/mv/rm files
@@ -384,11 +397,22 @@ This may look familiar. In fact, this is the same url format that netrw uses.
 
 Note that at the moment the ssh adapter does not support Windows machines, and it requires the server to have a `/bin/sh` binary as well as standard unix commands (`ls`, `rm`, `mv`, `mkdir`, `chmod`, `cp`, `touch`, `ln`, `echo`).
 
+### S3
+
+This adapter allows you to browse files stored in aws s3. To use it, make sure `aws` is setup correctly and then simply open a buffer using the following name template:
+
+```
+nvim oil-s3://[bucket]/[path]
+```
+
+Note that older versions of Neovim don't support numbers in the url, so for Neovim 0.11 and older the url starts with `oil-sss`.
+
 ## Recipes
 
 - [Toggle file detail view](doc/recipes.md#toggle-file-detail-view)
 - [Show CWD in the winbar](doc/recipes.md#show-cwd-in-the-winbar)
 - [Hide gitignored files and show git tracked hidden files](doc/recipes.md#hide-gitignored-files-and-show-git-tracked-hidden-files)
+- [Use FreeDesktop trash on MacOS](doc/recipes.md#use-freedesktop-trash-on-macos)
 
 ## Third-party extensions
 
@@ -396,6 +420,7 @@ These are plugins maintained by other authors that extend the functionality of o
 
 - [oil-git-status.nvim](https://github.com/refractalize/oil-git-status.nvim) - Shows git status of files in statuscolumn
 - [oil-git.nvim](https://github.com/benomahony/oil-git.nvim) - Shows git status of files with colour and symbols
+- [oil-git.nvim](https://github.com/malewicz1337/oil-git.nvim) - Async git status integration with directory support
 - [oil-lsp-diagnostics.nvim](https://github.com/JezerM/oil-lsp-diagnostics.nvim) - Shows LSP diagnostics indicator as virtual text
 
 ## API
@@ -411,7 +436,7 @@ These are plugins maintained by other authors that extend the functionality of o
 - [toggle_hidden()](doc/api.md#toggle_hidden)
 - [get_current_dir(bufnr)](doc/api.md#get_current_dirbufnr)
 - [open_float(dir, opts, cb)](doc/api.md#open_floatdir-opts-cb)
-- [toggle_float(dir)](doc/api.md#toggle_floatdir)
+- [toggle_float(dir, opts, cb)](doc/api.md#toggle_floatdir-opts-cb)
 - [open(dir, opts, cb)](doc/api.md#opendir-opts-cb)
 - [close(opts)](doc/api.md#closeopts)
 - [open_preview(opts, callback)](doc/api.md#open_previewopts-callback)

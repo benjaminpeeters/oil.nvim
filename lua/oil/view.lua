@@ -257,24 +257,17 @@ local function get_first_mutable_column_col(adapter, ranges)
   return min_col
 end
 
----Force cursor to be after hidden/immutable columns
----@param bufnr integer
----@param mode false|"name"|"editable"
-local function constrain_cursor(bufnr, mode)
-  if not mode then
-    return
-  end
-  if bufnr ~= vim.api.nvim_get_current_buf() then
-    return
-  end
+--- @param bufnr integer
+--- @param adapter oil.Adapter
+--- @param mode false|"name"|"editable"
+--- @param cur integer[]
+--- @return integer[] | nil
+local function calc_constrained_cursor_pos(bufnr, adapter, mode, cur)
   local parser = require("oil.mutator.parser")
-
-  local adapter = util.get_adapter(bufnr, true)
-  if not adapter then
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  if cur[1] < 1 or cur[1] > line_count then
     return
   end
-
-  local cur = vim.api.nvim_win_get_cursor(0)
   local line = vim.api.nvim_buf_get_lines(bufnr, cur[1] - 1, cur[1], true)[1]
   local column_defs = columns.get_supported_columns(adapter)
   local result = parser.parse_line(adapter, line, column_defs)
@@ -288,7 +281,45 @@ local function constrain_cursor(bufnr, mode)
       error(string.format('Unexpected value "%s" for option constrain_cursor', mode))
     end
     if cur[2] < min_col then
-      vim.api.nvim_win_set_cursor(0, { cur[1], min_col })
+      return { cur[1], min_col }
+    end
+  end
+end
+
+---Force cursor to be after hidden/immutable columns
+---@param bufnr integer
+---@param mode false|"name"|"editable"
+local function constrain_cursor(bufnr, mode)
+  if not mode then
+    return
+  end
+  if bufnr ~= vim.api.nvim_get_current_buf() then
+    return
+  end
+
+  local adapter = util.get_adapter(bufnr, true)
+  if not adapter then
+    return
+  end
+
+  local mc = package.loaded["multicursor-nvim"]
+  if mc then
+    mc.onSafeState(function()
+      mc.action(function(ctx)
+        ctx:forEachCursor(function(cursor)
+          local new_cur =
+            calc_constrained_cursor_pos(bufnr, adapter, mode, { cursor:line(), cursor:col() - 1 })
+          if new_cur then
+            cursor:setPos({ new_cur[1], new_cur[2] + 1 })
+          end
+        end)
+      end)
+    end, { once = true })
+  else
+    local cur = vim.api.nvim_win_get_cursor(0)
+    local new_cur = calc_constrained_cursor_pos(bufnr, adapter, mode, cur)
+    if new_cur then
+      vim.api.nvim_win_set_cursor(0, new_cur)
     end
   end
 end
@@ -472,36 +503,39 @@ M.initialize = function(bufnr)
     local fs_event = assert(uv.new_fs_event())
     local bufname = vim.api.nvim_buf_get_name(bufnr)
     local _, dir = util.parse_url(bufname)
-    fs_event:start(
-      assert(dir),
-      {},
-      vim.schedule_wrap(function(err, filename, events)
-        if not vim.api.nvim_buf_is_valid(bufnr) then
-          local sess = session[bufnr]
-          if sess then
-            sess.fs_event = nil
-          end
-          fs_event:stop()
-          return
-        end
-        local mutator = require("oil.mutator")
-        if err or vim.bo[bufnr].modified or vim.b[bufnr].oil_dirty or mutator.is_mutating() then
-          return
-        end
-
-        -- If the buffer is currently visible, rerender
-        for _, winid in ipairs(vim.api.nvim_list_wins()) do
-          if vim.api.nvim_win_is_valid(winid) and vim.api.nvim_win_get_buf(winid) == bufnr then
-            M.render_buffer_async(bufnr)
+    if not (fs.is_windows and dir == "/") then
+      local os_path = fs.posix_to_os_path(assert(dir))
+      fs_event:start(
+        os_path,
+        {},
+        vim.schedule_wrap(function(err, filename, events)
+          if not vim.api.nvim_buf_is_valid(bufnr) then
+            local sess = session[bufnr]
+            if sess then
+              sess.fs_event = nil
+            end
+            fs_event:stop()
             return
           end
-        end
+          local mutator = require("oil.mutator")
+          if err or vim.bo[bufnr].modified or vim.b[bufnr].oil_dirty or mutator.is_mutating() then
+            return
+          end
 
-        -- If it is not currently visible, mark it as dirty
-        vim.b[bufnr].oil_dirty = {}
-      end)
-    )
-    session[bufnr].fs_event = fs_event
+          -- If the buffer is currently visible, rerender
+          for _, winid in ipairs(vim.api.nvim_list_wins()) do
+            if vim.api.nvim_win_is_valid(winid) and vim.api.nvim_win_get_buf(winid) == bufnr then
+              M.render_buffer_async(bufnr)
+              return
+            end
+          end
+
+          -- If it is not currently visible, mark it as dirty
+          vim.b[bufnr].oil_dirty = {}
+        end)
+      )
+      session[bufnr].fs_event = fs_event
+    end
   end
 
   -- Watch for TextChanged and update the trash original path extmarks
@@ -641,8 +675,11 @@ local function render_buffer(bufnr, opts)
   local column_defs = columns.get_supported_columns(scheme)
   local line_table = {}
   local col_width = {}
-  for i in ipairs(column_defs) do
+  local col_align = {}
+  for i, col_def in ipairs(column_defs) do
     col_width[i + 1] = 1
+    local _, conf = util.split_config(col_def)
+    col_align[i + 1] = conf and conf.align or "left"
   end
 
   if M.should_display("..", bufnr) then
@@ -665,7 +702,7 @@ local function render_buffer(bufnr, opts)
     end
   end
 
-  local lines, highlights = util.render_table(line_table, col_width)
+  local lines, highlights = util.render_table(line_table, col_width, col_align)
 
   vim.bo[bufnr].modifiable = true
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, true, lines)
@@ -841,6 +878,7 @@ M.render_buffer_async = function(bufnr, opts, callback)
   opts = vim.tbl_deep_extend("keep", opts or {}, {
     refetch = true,
   })
+  ---@cast opts table
   if bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
   end

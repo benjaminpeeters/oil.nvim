@@ -306,7 +306,7 @@ M.open_float = function(dir, opts, cb)
         end
 
         -- Update the floating window title
-        if vim.fn.has("nvim-0.9") == 1 and config.float.border ~= "none" then
+        if config.float.border ~= "none" then
           local cur_win_opts = vim.api.nvim_win_get_config(winid)
           vim.api.nvim_win_set_config(winid, {
             relative = "editor",
@@ -334,19 +334,20 @@ M.open_float = function(dir, opts, cb)
       cb()
     end
   end)
-
-  if vim.fn.has("nvim-0.9") == 0 then
-    util.add_title_to_win(winid)
-  end
 end
 
 ---Open oil browser in a floating window, or close it if open
 ---@param dir nil|string When nil, open the parent of the current buffer, or the cwd if current buffer is not a file
-M.toggle_float = function(dir)
+---@param opts? oil.OpenOpts
+---@param cb? fun() Called after the oil buffer is ready
+M.toggle_float = function(dir, opts, cb)
   if vim.w.is_oil_win then
     M.close()
+    if cb then
+      cb()
+    end
   else
-    M.open_float(dir)
+    M.open_float(dir, opts, cb)
   end
 end
 
@@ -512,17 +513,14 @@ M.open_preview = function(opts, callback)
         focusable = false,
         noautocmd = true,
         style = "minimal",
+        title = entry_title,
       }
-
-      if vim.fn.has("nvim-0.9") == 1 then
-        win_opts.title = entry_title
-      end
 
       preview_win = vim.api.nvim_open_win(bufnr, true, win_opts)
       vim.api.nvim_set_option_value("previewwindow", true, { scope = "local", win = preview_win })
       vim.api.nvim_win_set_var(preview_win, "oil_preview", true)
       vim.api.nvim_set_current_win(prev_win)
-    elseif vim.fn.has("nvim-0.9") == 1 then
+    else
       vim.api.nvim_win_set_config(preview_win, { title = entry_title })
     end
   end
@@ -543,6 +541,8 @@ M.open_preview = function(opts, callback)
   end
 
   util.get_edit_path(bufnr, entry, function(normalized_url)
+    local mc = package.loaded["multicursor-nvim"]
+    local has_multicursors = mc and mc.hasCursors()
     local is_visual_mode = util.is_visual_mode()
     if preview_win then
       if is_visual_mode then
@@ -601,7 +601,10 @@ M.open_preview = function(opts, callback)
     end
     vim.w.oil_entry_id = entry.id
     vim.w.oil_source_win = prev_win
-    if is_visual_mode then
+    if has_multicursors then
+      hack_set_win(prev_win)
+      mc.restoreCursors()
+    elseif is_visual_mode then
       hack_set_win(prev_win)
       -- Restore the visual selection
       vim.cmd.normal({ args = { "gv" }, bang = true })
@@ -803,9 +806,6 @@ local function maybe_hijack_directory_buffer(bufnr)
   local config = require("oil.config")
   local fs = require("oil.fs")
   local util = require("oil.util")
-  if not config.default_file_explorer then
-    return false
-  end
   local bufname = vim.api.nvim_buf_get_name(bufnr)
   if bufname == "" then
     return false
@@ -823,6 +823,11 @@ end
 ---@private
 M._get_highlights = function()
   local highlights = {
+    {
+      name = "OilEmpty",
+      link = "Comment",
+      desc = "Empty column values",
+    },
     {
       name = "OilHidden",
       link = "Comment",
@@ -985,20 +990,6 @@ local function set_colors()
       vim.api.nvim_set_hl(0, conf.name, { default = true, link = conf.link })
     end
   end
-  -- TODO can remove this call once we drop support for Neovim 0.8. FloatTitle was introduced as a
-  -- built-in highlight group in 0.9, and we can start to rely on colorschemes setting it.
-  ---@diagnostic disable-next-line: deprecated
-  if vim.fn.has("nvim-0.9") == 0 and not pcall(vim.api.nvim_get_hl_by_name, "FloatTitle", true) then
-    ---@diagnostic disable-next-line: deprecated
-    local border = vim.api.nvim_get_hl_by_name("FloatBorder", true)
-    ---@diagnostic disable-next-line: deprecated
-    local normal = vim.api.nvim_get_hl_by_name("Normal", true)
-    vim.api.nvim_set_hl(
-      0,
-      "FloatTitle",
-      { fg = normal.foreground, bg = border.background or normal.background }
-    )
-  end
 end
 
 ---Save all changes
@@ -1146,14 +1137,21 @@ local _on_key_ns = 0
 ---Initialize oil
 ---@param opts oil.setupOpts|nil
 M.setup = function(opts)
+  if vim.fn.has("nvim-0.10") == 0 then
+    vim.notify_once(
+      "aerial is deprecated for Neovim <0.10. Please use a nvim-0.x branch or upgrade Neovim",
+      vim.log.levels.ERROR
+    )
+    return
+  end
   local Ringbuf = require("oil.ringbuf")
   local config = require("oil.config")
 
   config.setup(opts)
   set_colors()
-  vim.api.nvim_create_user_command("Oil", function(args)
+  local callback = function(args)
     local util = require("oil.util")
-    if args.smods.tab == 1 then
+    if args.smods.tab > 0 then
       vim.cmd.tabnew()
     end
     local float = false
@@ -1186,11 +1184,13 @@ M.setup = function(opts)
       end
     end
 
-    if not float and (args.smods.vertical or args.smods.split ~= "") then
+    if not float and (args.smods.vertical or args.smods.horizontal or args.smods.split ~= "") then
+      local range = args.count > 0 and { args.count } or nil
+      local cmdargs = { mods = { split = args.smods.split }, range = range }
       if args.smods.vertical then
-        vim.cmd.vsplit({ mods = { split = args.smods.split } })
+        vim.cmd.vsplit(cmdargs)
       else
-        vim.cmd.split({ mods = { split = args.smods.split } })
+        vim.cmd.split(cmdargs)
       end
     end
 
@@ -1206,7 +1206,12 @@ M.setup = function(opts)
       open_opts.preview = {}
     end
     M[method](path, open_opts)
-  end, { desc = "Open oil file browser on a directory", nargs = "*", complete = "dir" })
+  end
+  vim.api.nvim_create_user_command(
+    "Oil",
+    callback,
+    { desc = "Open oil file browser on a directory", nargs = "*", complete = "dir", count = true }
+  )
   local aug = vim.api.nvim_create_augroup("Oil", {})
 
   if config.default_file_explorer then
@@ -1403,15 +1408,7 @@ M.setup = function(opts)
       vim.w.oil_original_alternate = vim.w[parent_win].oil_original_alternate
     end,
   })
-  vim.api.nvim_create_autocmd("BufAdd", {
-    desc = "Detect directory buffer and open oil file browser",
-    group = aug,
-    pattern = "*",
-    nested = true,
-    callback = function(params)
-      maybe_hijack_directory_buffer(params.buf)
-    end,
-  })
+
   -- mksession doesn't save oil buffers in a useful way. We have to manually load them after a
   -- session finishes loading. See https://github.com/stevearc/oil.nvim/issues/29
   vim.api.nvim_create_autocmd("SessionLoadPost", {
@@ -1437,11 +1434,23 @@ M.setup = function(opts)
     require("oil.git_status").setup(config.git_status)
   end
 
-  local bufnr = vim.api.nvim_get_current_buf()
-  if maybe_hijack_directory_buffer(bufnr) and vim.v.vim_did_enter == 1 then
-    -- manually call load on a hijacked directory buffer if vim has already entered
-    -- (the BufReadCmd will not trigger)
-    M.load_oil_buffer(bufnr)
+  if config.default_file_explorer then
+    vim.api.nvim_create_autocmd("BufAdd", {
+      desc = "Detect directory buffer and open oil file browser",
+      group = aug,
+      pattern = "*",
+      nested = true,
+      callback = function(params)
+        maybe_hijack_directory_buffer(params.buf)
+      end,
+    })
+
+    local bufnr = vim.api.nvim_get_current_buf()
+    if maybe_hijack_directory_buffer(bufnr) and vim.v.vim_did_enter == 1 then
+      -- manually call load on a hijacked directory buffer if vim has already entered
+      -- (the BufReadCmd will not trigger)
+      M.load_oil_buffer(bufnr)
+    end
   end
 end
 

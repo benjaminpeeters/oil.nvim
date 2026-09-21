@@ -53,7 +53,7 @@ M.get_supported_columns = function(adapter_or_scheme)
   return ret
 end
 
-local EMPTY = { "-", "Comment" }
+local EMPTY = { "-", "OilEmpty" }
 
 M.EMPTY = EMPTY
 
@@ -98,13 +98,13 @@ end
 M.parse_col = function(adapter, line, col_def)
   local name, conf = util.split_config(col_def)
   -- If rendering failed, there will just be a "-"
-  local empty_col, rem = line:match("^(-%s+)(.*)$")
+  local empty_col, rem = line:match("^%s*(-%s+)(.*)$")
   if empty_col then
     return nil, rem
   end
   local column = M.get_column(adapter, name)
   if column then
-    return column.parse(line, conf)
+    return column.parse(line:gsub("^%s+", ""), conf)
   end
 end
 

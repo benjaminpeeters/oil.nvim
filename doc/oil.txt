@@ -86,7 +86,7 @@ CONFIG                                                                *oil-confi
         ["-"] = { "actions.parent", mode = "n" },
         ["_"] = { "actions.open_cwd", mode = "n" },
         ["`"] = { "actions.cd", mode = "n" },
-        ["~"] = { "actions.cd", opts = { scope = "tab" }, mode = "n" },
+        ["g~"] = { "actions.cd", opts = { scope = "tab" }, mode = "n" },
         ["gs"] = { "actions.change_sort", mode = "n" },
         ["gx"] = "actions.open_external",
         ["g."] = { "actions.toggle_hidden", mode = "n" },
@@ -124,6 +124,8 @@ CONFIG                                                                *oil-confi
       },
       -- Extra arguments to pass to SCP when moving/copying files over SSH
       extra_scp_args = {},
+      -- Extra arguments to pass to aws s3 when creating/deleting/moving/copying files using aws s3
+      extra_s3_args = {},
       -- EXPERIMENTAL support for performing file operations with git
       git = {
         -- Return true to automatically git add/mv/rm files
@@ -319,12 +321,20 @@ open_float({dir}, {opts}, {cb})                                   *oil.open_floa
                            plit modifier
       {cb}   `nil|fun()` Called after the oil buffer is ready
 
-toggle_float({dir})                                             *oil.toggle_float*
+toggle_float({dir}, {opts}, {cb})                               *oil.toggle_float*
     Open oil browser in a floating window, or close it if open
 
     Parameters:
-      {dir} `nil|string` When nil, open the parent of the current buffer, or the
-            cwd if current buffer is not a file
+      {dir}  `nil|string` When nil, open the parent of the current buffer, or
+             the cwd if current buffer is not a file
+      {opts} `nil|oil.OpenOpts`
+          {preview} `nil|oil.OpenPreviewOpts` When present, open the preview
+                    window after opening oil
+              {vertical}   `nil|boolean` Open the buffer in a vertical split
+              {horizontal} `nil|boolean` Open the buffer in a horizontal split
+              {split}      `nil|"aboveleft"|"belowright"|"topleft"|"botright"` S
+                           plit modifier
+      {cb}   `nil|fun()` Called after the oil buffer is ready
 
 open({dir}, {opts}, {cb})                                               *oil.open*
     Open oil browser for a directory
@@ -412,6 +422,7 @@ type                                                                 *column-typ
     Parameters:
       {highlight} `string|fun(value: string): string` Highlight group, or
                   function that returns a highlight group
+      {align}     `"left"|"center"|"right"` Text alignment within the column
       {icons}     `table<string, string>` Mapping of entry type to icon
 
 icon                                                                 *column-icon*
@@ -421,6 +432,7 @@ icon                                                                 *column-ico
     Parameters:
       {highlight}    `string|fun(value: string): string` Highlight group, or
                      function that returns a highlight group
+      {align}        `"left"|"center"|"right"` Text alignment within the column
       {default_file} `string` Fallback icon for files when nvim-web-devicons
                      returns nil
       {directory}    `string` Icon for directories
@@ -428,13 +440,14 @@ icon                                                                 *column-ico
                      the icon
 
 size                                                                 *column-size*
-    Adapters: files, ssh
+    Adapters: files, ssh, s3
     Sortable: this column can be used in view_props.sort
     The size of the file
 
     Parameters:
       {highlight} `string|fun(value: string): string` Highlight group, or
                   function that returns a highlight group
+      {align}     `"left"|"center"|"right"` Text alignment within the column
 
 permissions                                                   *column-permissions*
     Adapters: files, ssh
@@ -444,6 +457,7 @@ permissions                                                   *column-permission
     Parameters:
       {highlight} `string|fun(value: string): string` Highlight group, or
                   function that returns a highlight group
+      {align}     `"left"|"center"|"right"` Text alignment within the column
 
 ctime                                                               *column-ctime*
     Adapters: files
@@ -453,6 +467,7 @@ ctime                                                               *column-ctim
     Parameters:
       {highlight} `string|fun(value: string): string` Highlight group, or
                   function that returns a highlight group
+      {align}     `"left"|"center"|"right"` Text alignment within the column
       {format}    `string` Format string (see :help strftime)
 
 mtime                                                               *column-mtime*
@@ -463,6 +478,7 @@ mtime                                                               *column-mtim
     Parameters:
       {highlight} `string|fun(value: string): string` Highlight group, or
                   function that returns a highlight group
+      {align}     `"left"|"center"|"right"` Text alignment within the column
       {format}    `string` Format string (see :help strftime)
 
 atime                                                               *column-atime*
@@ -473,16 +489,18 @@ atime                                                               *column-atim
     Parameters:
       {highlight} `string|fun(value: string): string` Highlight group, or
                   function that returns a highlight group
+      {align}     `"left"|"center"|"right"` Text alignment within the column
       {format}    `string` Format string (see :help strftime)
 
 birthtime                                                       *column-birthtime*
-    Adapters: files
+    Adapters: files, s3
     Sortable: this column can be used in view_props.sort
     The time the file was created
 
     Parameters:
       {highlight} `string|fun(value: string): string` Highlight group, or
                   function that returns a highlight group
+      {align}     `"left"|"center"|"right"` Text alignment within the column
       {format}    `string` Format string (see :help strftime)
 
 --------------------------------------------------------------------------------
@@ -591,6 +609,12 @@ preview                                                          *actions.previe
 preview_scroll_down                                  *actions.preview_scroll_down*
     Scroll down in the preview window
 
+preview_scroll_left                                  *actions.preview_scroll_left*
+    Scroll left in the preview window
+
+preview_scroll_right                                *actions.preview_scroll_right*
+    Scroll right in the preview window
+
 preview_scroll_up                                      *actions.preview_scroll_up*
     Scroll up in the preview window
 
@@ -643,6 +667,9 @@ yank_entry                                                    *actions.yank_entr
 
 --------------------------------------------------------------------------------
 HIGHLIGHTS                                                        *oil-highlights*
+
+OilEmpty                                                             *hl-OilEmpty*
+    Empty column values
 
 OilHidden                                                           *hl-OilHidden*
     Hidden entry in an oil buffer
@@ -736,7 +763,7 @@ will be permanently deleted (purged).
 
 Linux:
     Oil supports the FreeDesktop trash specification.
-    https://specifications.freedesktop.org/trash-spec/1.0/
+    https://specifications.freedesktop.org/trash/1.0/
     All features should work.
 
 Mac:
