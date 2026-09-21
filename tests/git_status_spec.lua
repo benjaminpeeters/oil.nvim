@@ -42,6 +42,18 @@ describe("git_status", function()
     end)
   end)
 
+  describe("add_status_extmarks", function()
+    -- git runs asynchronously, so its result can arrive after the buffer it was
+    -- for has been wiped. That must be a no-op, not an "Invalid buffer id" error.
+    it("ignores a buffer that was wiped while git was running", function()
+      local bufnr = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_delete(bufnr, { force = true })
+      assert.has_no.errors(function()
+        git_status._add_status_extmarks(bufnr, { ["file.lua"] = { index = "M", working_tree = " " } })
+      end)
+    end)
+  end)
+
   describe("parse_git_status", function()
     it("reads index and working tree codes", function()
       local status = git_status.parse_git_status("M  staged.lua\n M unstaged.lua\n?? new.lua\n", "")

@@ -111,6 +111,11 @@ local function get_symbol(symbols, code)
 end
 
 local function add_status_extmarks(buffer, status)
+  -- The status arrives from an async git job, so the buffer may have been
+  -- wiped in the meantime
+  if not vim.api.nvim_buf_is_valid(buffer) then
+    return
+  end
   vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
 
   if status then
@@ -138,6 +143,9 @@ local function add_status_extmarks(buffer, status)
     end
   end
 end
+
+---@private
+M._add_status_extmarks = add_status_extmarks
 
 local function concurrent(fns, callback)
   local number_of_results = 0
