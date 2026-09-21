@@ -3,8 +3,8 @@
 > ## This is a personal fork
 >
 > Upstream is [stevearc/oil.nvim](https://github.com/stevearc/oil.nvim) — nearly
-> everything here is Steve Arcand's work, under the same MIT license. If you are
-> looking to install oil, install upstream, not this.
+> everything here is Steven Arcangeli's work, under the same MIT license. If you
+> are looking to install oil, install upstream, not this.
 >
 > This fork exists to carry a handful of changes that oil's configuration cannot
 > express, plus my own preferences. It is not intended as a competing
@@ -12,6 +12,8 @@
 >
 > - Fork point: [`7e1cd77`](https://github.com/stevearc/oil.nvim/commit/7e1cd7703ff2924d7038476dcbc04b950203b902)
 >   (2025-10-19), also available as the tag `upstream-base`.
+> - Upstream merged up to: [`b73018b`](https://github.com/stevearc/oil.nvim/commit/b73018b75affd13fa38e2fc94ef753b465f770d7)
+>   (2026-06-02).
 > - Working branch: `ben`. `master` is kept as a pristine mirror of upstream, so
 >   `git diff master..ben` is always exactly the delta.
 >
