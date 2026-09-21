@@ -616,6 +616,12 @@ M.add_to_loclist = {
   end,
 }
 
+-- Fork additions. Their bodies live in oil.extra_actions so this file stays
+-- close to upstream and keeps merging cleanly.
+for name, action in pairs(require("oil.extra_actions")) do
+  M[name] = action
+end
+
 ---List actions for documentation generation
 ---@private
 M._get_actions = function()
