@@ -41,6 +41,21 @@ local function isImage(url)
   end)
 end
 
+---Name of the bat executable. Debian and Ubuntu package it as `batcat`, because
+---the name `bat` was already taken there, so a hardcoded "bat" fails on them.
+---@return string|nil
+local function batCommand()
+  for _, name in ipairs({ "bat", "batcat" }) do
+    if vim.fn.executable(name) == 1 then
+      return name
+    end
+  end
+  vim.notify(
+    "WezTerm preview needs bat on PATH to show files (the package installs it as batcat on Debian/Ubuntu)",
+    vim.log.levels.ERROR
+  )
+end
+
 ---Get entry absolute path
 ---@return string ...
 local function getEntryAbsolutePath()
@@ -234,7 +249,8 @@ M.weztermPreview = {
             return
           end
 
-          if prev_cmd == "bat" then
+          -- bat may still be sitting in its pager: quit it before the next command
+          if prev_cmd == "bat" or prev_cmd == "batcat" then
             sendCommandToWeztermPane(preview_pane_id, "q")
             prev_cmd = nil
           end
@@ -250,7 +266,10 @@ M.weztermPreview = {
             command = command .. ("%s %s"):format(cmd, path)
             prev_cmd = cmd
           elseif entry.type == "file" then
-            local cmd = "bat"
+            local cmd = batCommand()
+            if not cmd then
+              return
+            end
             command = command .. ("%s %s"):format(cmd, path)
             prev_cmd = cmd
           end
