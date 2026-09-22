@@ -38,24 +38,26 @@
 > - `cd_on_enter` (on by default): the working directory follows every oil
 >   buffer entered, for the files adapter.
 > - `right_columns`: columns drawn to the right of the file name, as
->   right-aligned virtual text. Default: the modification time. Upstream renders
->   every column to the left of the name and hardcodes the name last, because
->   its parser treats the rest of the line as the name (names may contain
->   spaces). Virtual text is not buffer text, so the parser still sees a line
->   that ends with the name, and renaming, symlink targets and paste are exactly
->   as before. The column is display only and takes no part in editing. Its
->   highlight group is `OilRightColumn`.
-> - `actions.wezterm_preview`: previews the entry under the cursor in a WezTerm
->   pane. Derived from [mimikun/oil-image-preview.nvim](https://github.com/mimikun/oil-image-preview.nvim)
->   (MIT, Yuto Tanaka), license kept verbatim in `LICENSE-oil-image-preview`.
-> - Entries are coloured by extension, by a few exact names (`README.md`), and
->   symlinks by what they point at: `lua/oil/ext_highlight.lua`, used as the
->   default `view_options.highlight_filename`. It is a per-entry hook rather
->   than syntax rules anchored at the end of the line, so it keeps working when
->   something is rendered after the file name. The groups (`OilMarkdown`,
->   `OilPython`, ...) have no colours of their own; a colorscheme assigns them.
->   Upstream clears its default hook after defining it, this fork does not, and
->   `tests/ext_highlight_spec.lua` fails if that line ever comes back.
+>   right-aligned virtual text. Upstream renders every column to the left of
+>   the name and hardcodes the name last, because its parser treats the rest of
+>   the line as the name (names may contain spaces). Virtual text is not buffer
+>   text, so the parser still sees a line that ends with the name, and renaming,
+>   symlink targets and paste are exactly as before. Display only. Each column
+>   is padded to its widest value, so the block reads as a table. `gc` hides and
+>   shows them for the session, which is the escape hatch on a slow network
+>   mount, where the one stat per entry they need is what slows a listing.
+> - The columns themselves, in `lua/oil/extra_columns.lua`, all reading the
+>   stat that oil fetches anyway: `modified` with `style` `natural` (an age
+>   while fresh, then `today 14:01`, `yesterday`, the weekday, `15 Mar`,
+>   `2023-03-15`), `relative` (always an age) or `absolute` (`format`);
+>   `filesize` with `min` (bytes, nothing shown below it, or `below` as a
+>   placeholder) and colour tiers from 1 MB to 10 GB; `permissions_hint`,
+>   showing `ro` or `x` only when they apply; and `count`, the number of
+>   entries in a subdirectory, which reads the directory and is therefore not
+>   in the default: `{ "count", max = 9 }` stops reading after ten entries and
+>   shows `9+`, `max = false` counts exactly. Highlight groups:
+>   `OilRightColumn`, `OilModifiedToday`/`Week`/`Old`, `OilSizeXS` to
+>   `OilSizeXL`, `OilPermissionHint`.
 > - The defaults are mine, not upstream's. The default keymaps are replaced
 >   wholesale (see `keymaps` in `lua/oil/config.lua`), and these options differ:
 >   no icon column, `signcolumn = "yes:2"` with `cursorline` and no line numbers,

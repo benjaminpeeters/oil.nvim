@@ -641,9 +641,72 @@ end
 ---    jump boolean
 ---    jump_first boolean
 ---@return boolean
+-- Session-wide switch for the right-hand columns (actions.toggle_right_columns):
+-- the escape hatch for a slow network mount, where the stat per entry that the
+-- columns need is what makes a listing slow.
+local right_columns_enabled = true
+
+---@return boolean enabled after the toggle
+M.toggle_right_columns = function()
+  right_columns_enabled = not right_columns_enabled
+  for _, bufnr in ipairs(M.get_all_buffers()) do
+    M.render_buffer_async(bufnr, { refetch = true })
+  end
+  return right_columns_enabled
+end
+
+---Right-hand column specs the adapter supports, or none while toggled off.
+---@param adapter oil.Adapter
+---@return oil.ColumnSpec[]
+M.get_right_columns = function(adapter)
+  if not right_columns_enabled then
+    return {}
+  end
+  local defs = {}
+  for _, def in ipairs(config.right_columns) do
+    if columns.get_column(adapter, def) then
+      table.insert(defs, def)
+    end
+  end
+  return defs
+end
+
+---@param chunk oil.TextChunk
+---@return {[1]: string, [2]: string}[] virt text pieces
+---@return integer width
+local function chunk_to_virt(chunk)
+  if type(chunk) == "string" then
+    return { { chunk, "OilRightColumn" } }, vim.api.nvim_strwidth(chunk)
+  end
+  local text = chunk[1]
+  if type(chunk[2]) == "string" then
+    return { { text, chunk[2] } }, vim.api.nvim_strwidth(text)
+  end
+  -- oil.HlRangeTuple: one text with highlighted byte ranges
+  local pieces, pos = {}, 1
+  for _, range in ipairs(chunk[2]) do
+    local group, col_start, col_end = range[1], range[2], range[3]
+    if col_start + 1 > pos then
+      table.insert(pieces, { text:sub(pos, col_start), "OilRightColumn" })
+    end
+    table.insert(pieces, { text:sub(col_start + 1, col_end), group })
+    pos = col_end + 1
+  end
+  if pos <= #text then
+    table.insert(pieces, { text:sub(pos), "OilRightColumn" })
+  end
+  return pieces, vim.api.nvim_strwidth(text)
+end
+
 ---Columns right of the name are virtual text, never buffer text: the parser
 ---keeps seeing a line that ends with the name, so renaming, symlink targets,
 ---paste and cursor constraint are untouched by them.
+---
+---Each column is padded to its widest value in this render, so the values form
+---a table even though the whole block is right-aligned. A column's render is
+---called directly rather than through columns.render_col, which would turn an
+---empty value into a "-" placeholder; here empty means empty, which is what a
+---size threshold or a permissions hint relies on.
 ---@param bufnr integer
 ---@param adapter oil.Adapter
 ---@param displayed oil.InternalEntry[] entries in buffer order, one per line
@@ -651,42 +714,45 @@ local function render_right_columns(bufnr, adapter, displayed)
   local ns = vim.api.nvim_create_namespace("OilRightColumns")
   vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
 
-  local defs = {}
-  for _, def in ipairs(config.right_columns) do
-    if columns.get_column(adapter, def) then
-      table.insert(defs, def)
-    end
-  end
+  local defs = M.get_right_columns(adapter)
   if #defs == 0 then
     return
   end
 
-  for lnum, entry in ipairs(displayed) do
-    local virt_text = {}
-    for i, def in ipairs(defs) do
-      if i > 1 then
-        table.insert(virt_text, { " ", "OilRightColumn" })
+  -- pass 1: render every cell, remember each column's widest value
+  local cells = {} ---@type {[1]: table[], [2]: integer}[][] [line][col] = {pieces, width}
+  local widths = {}
+  local aligns = {}
+  for i, def in ipairs(defs) do
+    local name, conf = util.split_config(def)
+    widths[i] = 0
+    aligns[i] = conf and conf.align or "left"
+    local column = assert(columns.get_column(adapter, name))
+    for lnum, entry in ipairs(displayed) do
+      cells[lnum] = cells[lnum] or {}
+      local pieces, width = chunk_to_virt(column.render(entry, conf, bufnr))
+      cells[lnum][i] = { pieces, width }
+      if width > widths[i] then
+        widths[i] = width
       end
-      local chunk = columns.render_col(adapter, def, entry, bufnr)
-      if type(chunk) == "string" then
-        table.insert(virt_text, { chunk, "OilRightColumn" })
-      elseif type(chunk[2]) == "string" then
-        table.insert(virt_text, { chunk[1], chunk[2] })
-      else
-        -- oil.HlRangeTuple: one text with highlighted byte ranges
-        local text, ranges = chunk[1], chunk[2]
-        local pos = 1
-        for _, range in ipairs(ranges) do
-          local group, col_start, col_end = range[1], range[2], range[3]
-          if col_start + 1 > pos then
-            table.insert(virt_text, { text:sub(pos, col_start), "OilRightColumn" })
-          end
-          table.insert(virt_text, { text:sub(col_start + 1, col_end), group })
-          pos = col_end + 1
-        end
-        if pos <= #text then
-          table.insert(virt_text, { text:sub(pos), "OilRightColumn" })
-        end
+    end
+  end
+
+  -- pass 2: pad and emit
+  for lnum = 1, #displayed do
+    local virt_text = {}
+    for i = 1, #defs do
+      if i > 1 then
+        table.insert(virt_text, { "  ", "OilRightColumn" })
+      end
+      local pieces, width = cells[lnum][i][1], cells[lnum][i][2]
+      local pad = string.rep(" ", widths[i] - width)
+      if aligns[i] == "right" then
+        table.insert(virt_text, { pad, "OilRightColumn" })
+      end
+      vim.list_extend(virt_text, pieces)
+      if aligns[i] ~= "right" then
+        table.insert(virt_text, { pad, "OilRightColumn" })
       end
     end
     vim.api.nvim_buf_set_extmark(bufnr, ns, lnum - 1, 0, {

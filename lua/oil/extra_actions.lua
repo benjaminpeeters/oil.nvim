@@ -282,6 +282,14 @@ M.open_terminal = {
   end,
 }
 
+M.toggle_right_columns = {
+  desc = "Show or hide the right-hand columns for this session (a fast listing on a slow mount)",
+  callback = function()
+    local enabled = require("oil.view").toggle_right_columns()
+    vim.notify("Right-hand columns " .. (enabled and "shown" or "hidden"), vim.log.levels.INFO)
+  end,
+}
+
 M.wezterm_preview = {
   desc = "Toggle a WezTerm pane that previews the entry under the cursor",
   callback = function()

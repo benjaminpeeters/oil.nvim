@@ -216,8 +216,10 @@ end
 local function columns_require_stat(column_defs)
   for _, def in ipairs(column_defs) do
     local name = util.split_config(def)
-    local column = M.get_column(name)
-    ---@diagnostic disable-next-line: undefined-field We only put this on the files adapter columns
+    -- Fork: also columns registered from outside the adapter (oil.extra_columns),
+    -- which declare require_stat the same way. Upstream looked only at its own.
+    local column = columns.get_column(M, name)
+    ---@diagnostic disable-next-line: undefined-field
     if column and column.require_stat then
       return true
     end

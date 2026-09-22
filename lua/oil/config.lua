@@ -27,8 +27,13 @@ local default_config = {
   -- Columns drawn to the RIGHT of the name, as right-aligned virtual text. They
   -- are display only: not part of the buffer text, so not editable, and the
   -- line the parser sees still ends with the name. Fork addition.
+  -- The fork's own columns (lua/oil/extra_columns.lua): permissions_hint,
+  -- filesize (min, below), modified (style: natural, relative or absolute),
+  -- and count (max), which reads each subdirectory and is off by default.
   right_columns = {
-    { "mtime", format = "%y-%m-%d %H:%M" },
+    "permissions_hint",
+    { "filesize", min = 100e3, align = "right" },
+    { "modified", style = "natural" },
   },
   -- Buffer-local options to use for oil buffers
   buf_options = {
@@ -105,6 +110,7 @@ local default_config = {
     ["M"] = "actions.move_to_dir",
     ["T"] = "actions.toggle_trash",
     ["gs"] = "actions.change_sort",
+    ["gc"] = "actions.toggle_right_columns",
     [".."] = "actions.toggle_hidden",
   },
   -- Set to false to disable all of the above keymaps

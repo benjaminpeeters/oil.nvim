@@ -979,6 +979,21 @@ M._get_highlights = function()
     desc = "Columns drawn right of the name as virtual text (right_columns)",
   })
 
+  -- Groups for the fork's right-hand columns (oil.extra_columns)
+  for _, g in ipairs({
+    { "OilModifiedToday", "OilRightColumn", "modified column, changed today" },
+    { "OilModifiedWeek", "OilRightColumn", "modified column, changed this week" },
+    { "OilModifiedOld", "OilRightColumn", "modified column, older" },
+    { "OilSizeXS", "OilRightColumn", "filesize column, 1 MB and up" },
+    { "OilSizeS", "OilRightColumn", "filesize column, 10 MB and up" },
+    { "OilSizeM", "OilRightColumn", "filesize column, 100 MB and up" },
+    { "OilSizeL", "OilRightColumn", "filesize column, 1 GB and up" },
+    { "OilSizeXL", "OilRightColumn", "filesize column, 10 GB and up" },
+    { "OilPermissionHint", "OilRightColumn", "permissions_hint column (ro, x)" },
+  }) do
+    table.insert(highlights, { name = g[1], link = g[2], desc = g[3] })
+  end
+
   -- Git status signs (vendored oil-git-status). Two base groups plus one per
   -- status code, each linking to its base, so a colorscheme can recolour every
   -- index sign at once or target a single code.
@@ -1454,6 +1469,8 @@ M.setup = function(opts)
   -- Before the hijack below: that call loads the `nvim .` directory buffer, and
   -- git_status hooks FileType oil, so registering after it would miss the very
   -- first buffer of the session.
+  require("oil.extra_columns").register()
+
   if config.git_status.enabled then
     require("oil.git_status").setup(config.git_status)
   end
