@@ -107,53 +107,46 @@ M.yank_path_to_clipboard = {
   end,
 }
 
--- select and parent also change the working directory. They wait a moment
--- before doing so because oil switches buffers asynchronously, and cd has to
--- run in the buffer that was just entered.
-local CD_DELAY_MS = 50
-
-M.select_and_cd = {
-  desc = "Open the entry under the cursor and, for a directory, cd into it",
+-- Navigation that remembers where it came from. The working directory itself
+-- follows the buffer through config.cd_on_enter; these only record the origin.
+--
+-- Two different origins, for two different returns:
+--   * vim.b.oil_symlink_origin, on the oil buffer entered: parent_or_origin
+--     goes back there instead of to the parent, which matters after following
+--     a symlink, whose parent is not the directory we came from
+--   * vim.b.oil_origin_directory, on a file opened from oil: a global "-"
+--     mapping can reopen that directory rather than the file's own parent
+M.select_with_origin = {
+  desc = "Open the entry under the cursor, remembering the directory it was opened from",
   callback = function()
     local oil = require("oil")
-    local actions = require("oil.actions")
     local origin_dir = oil.get_current_dir() -- before selecting
 
-    actions.select.callback()
+    require("oil.actions").select.callback()
 
+    -- oil switches buffers asynchronously; the flag has to land on the buffer
+    -- that was just entered
     vim.defer_fn(function()
       if vim.bo.filetype == "oil" then
-        actions.cd.callback({ silent = true })
-        -- parent_and_cd returns here, which matters after following a symlink:
-        -- its parent is not the directory we came from
         vim.b.oil_symlink_origin = origin_dir
       else
         vim.b.oil_origin_directory = origin_dir
       end
-    end, CD_DELAY_MS)
+    end, 50)
   end,
 }
 
-M.parent_and_cd = {
-  desc = "Go back to the directory we came from, or to the parent, and cd there",
+M.parent_or_origin = {
+  desc = "Go back to the directory we came from, or to the parent",
   callback = function()
-    local oil = require("oil")
-    local actions = require("oil.actions")
-
     local symlink_origin = vim.b.oil_symlink_origin
     vim.b.oil_symlink_origin = nil -- one-time return
 
     if symlink_origin then
-      oil.open(symlink_origin)
+      require("oil").open(symlink_origin)
     else
-      actions.parent.callback()
+      require("oil.actions").parent.callback()
     end
-
-    vim.defer_fn(function()
-      if vim.bo.filetype == "oil" then
-        actions.cd.callback({ silent = true })
-      end
-    end, CD_DELAY_MS)
   end,
 }
 

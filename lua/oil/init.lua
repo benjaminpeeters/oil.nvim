@@ -1452,6 +1452,24 @@ M.setup = function(opts)
     require("oil.git_status").setup(config.git_status)
   end
 
+  if config.cd_on_enter then
+    vim.api.nvim_create_autocmd("BufEnter", {
+      desc = "Follow the oil buffer with :cd",
+      group = aug,
+      pattern = "*",
+      callback = function(params)
+        if vim.bo[params.buf].filetype ~= "oil" then
+          return
+        end
+        -- nil for remote adapters, where there is nothing local to cd into
+        local dir = M.get_current_dir(params.buf)
+        if dir then
+          vim.cmd.cd(vim.fn.fnameescape(dir))
+        end
+      end,
+    })
+  end
+
   if config.default_file_explorer then
     vim.api.nvim_create_autocmd("BufAdd", {
       desc = "Detect directory buffer and open oil file browser",

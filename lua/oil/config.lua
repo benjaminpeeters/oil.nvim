@@ -70,6 +70,9 @@ local default_config = {
   constrain_cursor = "editable",
   -- Set to true to watch the filesystem for changes and reload oil
   watch_for_changes = true,
+  -- Change the working directory to the directory of every oil buffer entered
+  -- (files adapter only). Fork addition.
+  cd_on_enter = true,
   -- Keymaps in oil buffer. Can be any value that `vim.keymap.set` accepts OR a table of keymap
   -- options with a `callback` (e.g. { callback = function() ... end, desc = "", mode = "n" })
   -- Additionally, if it is a string that matches "actions.<name>",
@@ -78,8 +81,8 @@ local default_config = {
   -- See :help oil-actions for a list of all available actions
   keymaps = {
     ["?"] = { "actions.show_help", mode = "n" },
-    ["<CR>"] = "actions.select_and_cd",
-    ["-"] = "actions.parent_and_cd",
+    ["<CR>"] = "actions.select_with_origin",
+    ["-"] = "actions.parent_or_origin",
     ["L"] = { "actions.select_split", opts = { direction = "right" } },
     ["H"] = { "actions.select_split", opts = { direction = "left" } },
     ["J"] = { "actions.select_split", opts = { direction = "down" } },

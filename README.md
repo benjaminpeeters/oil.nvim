@@ -31,10 +31,12 @@
 >   attached, which used to raise "URI must contain a scheme" on every save.
 >   Covered by `tests/git_status_spec.lua`.
 > - New actions, in `lua/oil/extra_actions.lua`: `select_split` (open in a split
->   on a given side), `select_and_cd` and `parent_and_cd` (navigate and change
->   the working directory, returning to where you came from after following a
->   symlink), `yank_path_to_clipboard`, `open_by_type`, `open_terminal`,
->   `trash_put`, `delete_permanently` and `move_to_dir`.
+>   on a given side), `select_with_origin` and `parent_or_origin` (navigate,
+>   returning to where you came from after following a symlink),
+>   `yank_path_to_clipboard`, `open_by_type`, `open_terminal`, `trash_put`,
+>   `delete_permanently` and `move_to_dir`.
+> - `cd_on_enter` (on by default): the working directory follows every oil
+>   buffer entered, for the files adapter.
 > - `actions.wezterm_preview`: previews the entry under the cursor in a WezTerm
 >   pane. Derived from [mimikun/oil-image-preview.nvim](https://github.com/mimikun/oil-image-preview.nvim)
 >   (MIT, Yuto Tanaka), license kept verbatim in `LICENSE-oil-image-preview`.

@@ -20,6 +20,7 @@ M.reset_editor = function()
     delete_to_trash = false,
     watch_for_changes = false,
     git_status = { enabled = false },
+    cd_on_enter = false,
   })
   vim.cmd.tabonly({ mods = { silent = true } })
   for i, winid in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
