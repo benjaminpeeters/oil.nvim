@@ -226,7 +226,7 @@ M.weztermPreview = {
 
     local oil = require("oil")
     local oil_util = require("oil.util")
-    local perviw_entry_id = nil
+    local preview_entry_id = nil
     local prev_cmd = nil
 
     local neovim_wezterm_pane_id = getNeovimWeztermPane()
@@ -245,7 +245,7 @@ M.weztermPreview = {
           preview_pane_state[bufnr] = preview_pane_id
           activeWeztermPane(neovim_wezterm_pane_id)
 
-          if perviw_entry_id == entry.id then
+          if preview_entry_id == entry.id then
             return
           end
 
@@ -275,6 +275,7 @@ M.weztermPreview = {
           end
 
           sendCommandToWeztermPane(preview_pane_id, command)
+          preview_entry_id = entry.id
         end
       end),
       50
