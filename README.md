@@ -37,6 +37,14 @@
 >   `delete_permanently` and `move_to_dir`.
 > - `cd_on_enter` (on by default): the working directory follows every oil
 >   buffer entered, for the files adapter.
+> - `right_columns`: columns drawn to the right of the file name, as
+>   right-aligned virtual text. Default: the modification time. Upstream renders
+>   every column to the left of the name and hardcodes the name last, because
+>   its parser treats the rest of the line as the name (names may contain
+>   spaces). Virtual text is not buffer text, so the parser still sees a line
+>   that ends with the name, and renaming, symlink targets and paste are exactly
+>   as before. The column is display only and takes no part in editing. Its
+>   highlight group is `OilRightColumn`.
 > - `actions.wezterm_preview`: previews the entry under the cursor in a WezTerm
 >   pane. Derived from [mimikun/oil-image-preview.nvim](https://github.com/mimikun/oil-image-preview.nvim)
 >   (MIT, Yuto Tanaka), license kept verbatim in `LICENSE-oil-image-preview`.

@@ -973,6 +973,12 @@ M._get_highlights = function()
     })
   end
 
+  table.insert(highlights, {
+    name = "OilRightColumn",
+    link = "Comment",
+    desc = "Columns drawn right of the name as virtual text (right_columns)",
+  })
+
   -- Git status signs (vendored oil-git-status). Two base groups plus one per
   -- status code, each linking to its base, so a colorscheme can recolour every
   -- index sign at once or target a single code.

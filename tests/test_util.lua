@@ -4,24 +4,34 @@ local test_adapter = require("oil.adapters.test")
 local util = require("oil.util")
 local M = {}
 
+-- This fork's defaults differ from upstream's, and these specs were written
+-- against upstream's. Pin the ones that change how mutations behave or that
+-- add background activity: spec files run as parallel nvim processes, and a
+-- directory watcher plus two git jobs per oil buffer in each of them made
+-- the suite flaky (a spec silently not reporting, a search landing on the
+-- wrong line). A spec that needs one of these turns it on with M.setup.
+M.pinned_setup_opts = {
+  columms = {},
+  adapters = {
+    ["oil-test://"] = "test",
+  },
+  prompt_save_on_select_new_entry = false,
+  delete_to_trash = false,
+  watch_for_changes = false,
+  git_status = { enabled = false },
+  cd_on_enter = false,
+  right_columns = {},
+}
+
+---setup() with the pins above plus overrides. Calling require("oil").setup
+---directly from a spec drops the pins, since setup merges with the defaults.
+---@param overrides? table
+M.setup = function(overrides)
+  require("oil").setup(vim.tbl_deep_extend("force", M.pinned_setup_opts, overrides or {}))
+end
+
 M.reset_editor = function()
-  require("oil").setup({
-    columms = {},
-    adapters = {
-      ["oil-test://"] = "test",
-    },
-    prompt_save_on_select_new_entry = false,
-    -- This fork's defaults differ from upstream's, and these specs were written
-    -- against upstream's. Pin the ones that change how mutations behave or that
-    -- add background activity: spec files run as parallel nvim processes, and a
-    -- directory watcher plus two git jobs per oil buffer in each of them made
-    -- the suite flaky (a spec silently not reporting, a search landing on the
-    -- wrong line). Specs that need one of these turn it on themselves.
-    delete_to_trash = false,
-    watch_for_changes = false,
-    git_status = { enabled = false },
-    cd_on_enter = false,
-  })
+  M.setup()
   vim.cmd.tabonly({ mods = { silent = true } })
   for i, winid in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     if i > 1 then

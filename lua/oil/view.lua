@@ -641,6 +641,63 @@ end
 ---    jump boolean
 ---    jump_first boolean
 ---@return boolean
+---Columns right of the name are virtual text, never buffer text: the parser
+---keeps seeing a line that ends with the name, so renaming, symlink targets,
+---paste and cursor constraint are untouched by them.
+---@param bufnr integer
+---@param adapter oil.Adapter
+---@param displayed oil.InternalEntry[] entries in buffer order, one per line
+local function render_right_columns(bufnr, adapter, displayed)
+  local ns = vim.api.nvim_create_namespace("OilRightColumns")
+  vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+
+  local defs = {}
+  for _, def in ipairs(config.right_columns) do
+    if columns.get_column(adapter, def) then
+      table.insert(defs, def)
+    end
+  end
+  if #defs == 0 then
+    return
+  end
+
+  for lnum, entry in ipairs(displayed) do
+    local virt_text = {}
+    for i, def in ipairs(defs) do
+      if i > 1 then
+        table.insert(virt_text, { " ", "OilRightColumn" })
+      end
+      local chunk = columns.render_col(adapter, def, entry, bufnr)
+      if type(chunk) == "string" then
+        table.insert(virt_text, { chunk, "OilRightColumn" })
+      elseif type(chunk[2]) == "string" then
+        table.insert(virt_text, { chunk[1], chunk[2] })
+      else
+        -- oil.HlRangeTuple: one text with highlighted byte ranges
+        local text, ranges = chunk[1], chunk[2]
+        local pos = 1
+        for _, range in ipairs(ranges) do
+          local group, col_start, col_end = range[1], range[2], range[3]
+          if col_start + 1 > pos then
+            table.insert(virt_text, { text:sub(pos, col_start), "OilRightColumn" })
+          end
+          table.insert(virt_text, { text:sub(col_start + 1, col_end), group })
+          pos = col_end + 1
+        end
+        if pos <= #text then
+          table.insert(virt_text, { text:sub(pos), "OilRightColumn" })
+        end
+      end
+    end
+    vim.api.nvim_buf_set_extmark(bufnr, ns, lnum - 1, 0, {
+      virt_text = virt_text,
+      virt_text_pos = "right_align",
+      hl_mode = "combine",
+      strict = false,
+    })
+  end
+end
+
 local function render_buffer(bufnr, opts)
   if bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
@@ -682,10 +739,12 @@ local function render_buffer(bufnr, opts)
     col_align[i + 1] = conf and conf.align or "left"
   end
 
+  local displayed = {}
   if M.should_display("..", bufnr) then
-    local cols =
-      M.format_entry_cols({ 0, "..", "directory" }, column_defs, col_width, adapter, true, bufnr)
+    local parent = { 0, "..", "directory" }
+    local cols = M.format_entry_cols(parent, column_defs, col_width, adapter, true, bufnr)
     table.insert(line_table, cols)
+    table.insert(displayed, parent)
   end
 
   for _, entry in ipairs(entry_list) do
@@ -693,6 +752,7 @@ local function render_buffer(bufnr, opts)
     if should_display then
       local cols = M.format_entry_cols(entry, column_defs, col_width, adapter, is_hidden, bufnr)
       table.insert(line_table, cols)
+      table.insert(displayed, entry)
 
       local name = entry[FIELD_NAME]
       if seek_after_render == name then
@@ -709,6 +769,7 @@ local function render_buffer(bufnr, opts)
   vim.bo[bufnr].modifiable = false
   vim.bo[bufnr].modified = false
   util.set_highlights(bufnr, highlights)
+  render_right_columns(bufnr, adapter, displayed)
 
   if opts.jump then
     -- TODO why is the schedule necessary?
@@ -857,6 +918,11 @@ end
 local function get_used_columns()
   local cols = {}
   for _, def in ipairs(config.columns) do
+    local name = util.split_config(def)
+    table.insert(cols, name)
+  end
+  -- so the adapter fetches what the right-hand columns need (mtime needs a stat)
+  for _, def in ipairs(config.right_columns) do
     local name = util.split_config(def)
     table.insert(cols, name)
   end

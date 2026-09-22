@@ -24,6 +24,12 @@ local default_config = {
     -- "size",
     -- "mtime",
   },
+  -- Columns drawn to the RIGHT of the name, as right-aligned virtual text. They
+  -- are display only: not part of the buffer text, so not editable, and the
+  -- line the parser sees still ends with the name. Fork addition.
+  right_columns = {
+    { "mtime", format = "%y-%m-%d %H:%M" },
+  },
   -- Buffer-local options to use for oil buffers
   buf_options = {
     buflisted = false,
@@ -270,6 +276,7 @@ default_config.adapter_aliases = {}
 ---@field silence_scp_warning? boolean Undocumented option
 ---@field default_file_explorer boolean
 ---@field columns oil.ColumnSpec[]
+---@field right_columns oil.ColumnSpec[]
 ---@field buf_options table<string, any>
 ---@field win_options table<string, any>
 ---@field delete_to_trash boolean
@@ -299,6 +306,7 @@ local M = {}
 ---@class (exact) oil.SetupOpts
 ---@field default_file_explorer? boolean Oil will take over directory buffers (e.g. `vim .` or `:e src/`). Set to false if you still want to use netrw.
 ---@field columns? oil.ColumnSpec[] The columns to display. See :help oil-columns.
+---@field right_columns? oil.ColumnSpec[] Columns shown right of the name as virtual text; display only
 ---@field buf_options? table<string, any> Buffer-local options to use for oil buffers
 ---@field win_options? table<string, any> Window-local options to use for oil buffers
 ---@field delete_to_trash? boolean Send deleted files to the trash instead of permanently deleting them (:help oil-trash).
