@@ -43,15 +43,18 @@
 >   the line as the name (names may contain spaces). Virtual text is not buffer
 >   text, so the parser still sees a line that ends with the name, and renaming,
 >   symlink targets and paste are exactly as before. Display only. Each column
->   is padded to its widest value, so the block reads as a table. `gc` hides and
+>   has a fixed width, the widest value its format can produce, so the block
+>   sits at the same place in every directory. `gc` hides and
 >   shows them for the session, which is the escape hatch on a slow network
 >   mount, where the one stat per entry they need is what slows a listing.
 > - The columns themselves, in `lua/oil/extra_columns.lua`, all reading the
 >   stat that oil fetches anyway: `modified` with `style` `natural` (an age
->   while fresh, then `today 14:01`, `yesterday`, the weekday, `15 Mar`,
->   `2023-03-15`), `relative` (always an age) or `absolute` (`format`);
+>   while fresh, then `today 14:01`, `yest. 09:12`, `Mon 14:01`, `15 Mar`,
+>   `2023-03-15`, all within 11 characters), `relative` (always an age) or
+>   `absolute` (`format`);
 >   `filesize` with `min` (bytes, nothing shown below it, or `below` as a
->   placeholder) and colour tiers from 1 MB to 10 GB; `permissions_hint`,
+>   placeholder), formatted like `ls -h` in at most 4 characters, with colour
+>   tiers from 1 MB to 10 GB; `permissions_hint`,
 >   showing `ro` or `x` only when they apply; and `count`, the number of
 >   entries in a subdirectory, which reads the directory and is therefore not
 >   in the default: `{ "count", max = 9 }` stops reading after ten entries and

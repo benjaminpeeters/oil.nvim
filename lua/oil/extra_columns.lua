@@ -86,7 +86,7 @@ local function natural(sec, now)
   if sec >= midnight then
     return "today " .. clock
   elseif sec >= midnight - DAY then
-    return "yesterday " .. clock
+    return "yest. " .. clock -- as wide as "today", so the column never shifts
   elseif sec >= midnight - 6 * DAY then
     return WEEKDAYS[t.wday] .. " " .. clock
   elseif t.year == os.date("*t", now).year then
@@ -142,6 +142,23 @@ M.modified = {
     return stat and stat.mtime.sec or 0
   end,
 
+  ---Widest value the style can produce, so the column keeps one width in
+  ---every directory instead of fitting the widest value on screen.
+  ---@param conf? {style?: string, format?: string}
+  ---@return integer
+  width = function(conf)
+    local style = conf and conf.style or "natural"
+    if style == "natural" then
+      return #"today 00:00" -- also "yest. 00:00" and "2023-03-15"
+    elseif style == "relative" then
+      return #"12mo ago" -- also "just now"
+    else
+      -- a strftime format's width does not depend on the date, apart from
+      -- locale-dependent names, which absolute leaves to the user
+      return vim.api.nvim_strwidth(os.date(conf and conf.format or "%y-%m-%d %H:%M", 0))
+    end
+  end,
+
   parse = display_only("modified"),
 }
 
@@ -149,16 +166,24 @@ M.modified = {
 
 ---@param size integer
 ---@return string
+---Like ls -h: one decimal below 10, none above, so never more than 4 characters
+---(999k, 3.0M, 45M, 1.2G) up to 999T. The two thresholds are where rounding
+---would otherwise print a fifth character: 9.95 rounds to "10.0", and 999.5 of
+---the smaller unit rounds to "1000".
+---@param size integer
+---@return string
 local function human_size(size)
-  if size >= 1e9 then
-    return string.format("%.1fG", size / 1e9)
-  elseif size >= 1e6 then
-    return string.format("%.1fM", size / 1e6)
-  elseif size >= 1e3 then
-    return string.format("%.0fk", size / 1e3)
-  else
-    return string.format("%d", size)
+  local units = { { 1e12, "T" }, { 1e9, "G" }, { 1e6, "M" }, { 1e3, "k" } }
+  for _, u in ipairs(units) do
+    if size >= u[1] * 0.9995 then
+      local v = size / u[1]
+      if v < 9.95 then
+        return string.format("%.1f%s", v, u[2])
+      end
+      return string.format("%.0f%s", v, u[2])
+    end
   end
+  return tostring(size)
 end
 
 -- Colour by magnitude. Each threshold is the lowest size that takes its group.
@@ -206,6 +231,12 @@ M.filesize = {
     return stat and stat.size or 0
   end,
 
+  ---@param conf? {below?: string}
+  ---@return integer
+  width = function(conf)
+    return math.max(4, conf and conf.below and vim.api.nvim_strwidth(conf.below) or 0)
+  end,
+
   parse = display_only("filesize"),
 }
 
@@ -232,6 +263,10 @@ M.permissions_hint = {
       return { "x", "OilPermissionHint" }
     end
     return ""
+  end,
+
+  width = function()
+    return #"ro x"
   end,
 
   parse = display_only("permissions_hint"),
@@ -272,6 +307,17 @@ M.count = {
       end
     end
     return { tostring(n), "OilRightColumn" }
+  end,
+
+  ---@param conf? {max?: integer|false}
+  ---@return integer
+  width = function(conf)
+    local max = conf and conf.max
+    if max == nil then
+      max = 9
+    end
+    -- exact counts have no bound; the renderer then fits the widest value
+    return max and #(max .. "+") or 0
   end,
 
   parse = display_only("count"),

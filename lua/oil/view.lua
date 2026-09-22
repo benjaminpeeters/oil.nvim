@@ -702,8 +702,9 @@ end
 ---keeps seeing a line that ends with the name, so renaming, symlink targets,
 ---paste and cursor constraint are untouched by them.
 ---
----Each column is padded to its widest value in this render, so the values form
----a table even though the whole block is right-aligned. A column's render is
+---Each column is padded to a fixed width (its widest possible value, when the
+---column declares one, else its widest value in this render), so the values
+---form a table even though the whole block is right-aligned. A column's render is
 ---called directly rather than through columns.render_col, which would turn an
 ---empty value into a "-" placeholder; here empty means empty, which is what a
 ---size threshold or a permissions hint relies on.
@@ -725,9 +726,12 @@ local function render_right_columns(bufnr, adapter, displayed)
   local aligns = {}
   for i, def in ipairs(defs) do
     local name, conf = util.split_config(def)
-    widths[i] = 0
-    aligns[i] = conf and conf.align or "left"
     local column = assert(columns.get_column(adapter, name))
+    -- A column that knows its widest possible value keeps that width in every
+    -- directory, so the block sits at the same place when changing location.
+    -- Otherwise it fits the widest value on screen.
+    widths[i] = column.width and column.width(conf) or 0
+    aligns[i] = conf and conf.align or "left"
     for lnum, entry in ipairs(displayed) do
       cells[lnum] = cells[lnum] or {}
       local pieces, width = chunk_to_virt(column.render(entry, conf, bufnr))

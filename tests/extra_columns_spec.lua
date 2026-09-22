@@ -48,7 +48,7 @@ describe("extra_columns", function()
       if now - noon >= 6 * 3600 then
         assert.equals("today 12:00", text_of(extra.modified.render(entry({ mtime = noon }), { style = "natural" })))
       end
-      assert.equals("yesterday 12:00", text_of(extra.modified.render(entry({ mtime = noon - DAY }), { style = "natural" })))
+      assert.equals("yest. 12:00", text_of(extra.modified.render(entry({ mtime = noon - DAY }), { style = "natural" })))
       local three_days = noon - 3 * DAY
       local expected = ({ "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" })[os.date("*t", three_days).wday] .. " 12:00"
       assert.equals(expected, text_of(extra.modified.render(entry({ mtime = three_days }), { style = "natural" })))
@@ -76,6 +76,19 @@ describe("extra_columns", function()
       assert.equals("2024", text_of(extra.modified.render(entry({ mtime = fixed }), { style = "absolute", format = "%Y" })))
     end)
 
+    it("never exceeds its declared width, in any style", function()
+      local samples = { now - 10, now - 5 * 60, now - 2 * 3600, noon, noon - DAY, noon - 3 * DAY,
+        os.time({ year = t.year, month = 1, day = 15, hour = 12 }), os.time({ year = 2023, month = 12, day = 25, hour = 23, min = 59 }) }
+      for _, style in ipairs({ "natural", "relative", "absolute" }) do
+        local conf = { style = style }
+        local width = extra.modified.width(conf)
+        for _, sec in ipairs(samples) do
+          local text = text_of(extra.modified.render(entry({ mtime = sec }), conf))
+          assert.is_true(#text <= width, ("%s %q is wider than %d"):format(style, text, width))
+        end
+      end
+    end)
+
     it("rejects an unknown style loudly", function()
       assert.has_error(function()
         extra.modified.render(entry({ mtime = now }), { style = "fancy" })
@@ -92,6 +105,18 @@ describe("extra_columns", function()
 
     it("shows nothing for directories", function()
       assert.equals("", text_of(extra.filesize.render(entry({ type = "directory", size = 4096 }), {})))
+    end)
+
+    it("formats like ls -h and never exceeds 4 characters", function()
+      local cases = {
+        { 999, "999" }, { 1000, "1.0k" }, { 9950, "10k" }, { 999499, "999k" }, { 999500, "1.0M" },
+        { 45e6, "45M" }, { 999.5e6, "1.0G" }, { 9.95e9, "10G" }, { 999.9e9, "1.0T" }, { 999e12, "999T" },
+      }
+      for _, c in ipairs(cases) do
+        local text = text_of(extra.filesize.render(entry({ size = c[1] }), {}))
+        assert.equals(c[2], text, tostring(c[1]))
+        assert.is_true(#text <= extra.filesize.width({}), text)
+      end
     end)
 
     it("colours by magnitude", function()
