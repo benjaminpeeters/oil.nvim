@@ -44,7 +44,7 @@
 >   text, so the parser still sees a line that ends with the name, and renaming,
 >   symlink targets and paste are exactly as before. Display only. Each column
 >   has a fixed width, the widest value its format can produce, so the block
->   sits at the same place in every directory. `gc` hides and
+>   sits at the same place in every directory. `gi` hides and
 >   shows them for the session, which is the escape hatch on a slow network
 >   mount, where the one stat per entry they need is what slows a listing.
 > - The columns themselves, in `lua/oil/extra_columns.lua`, all reading the
