@@ -773,8 +773,23 @@ local function render_executable_marks(bufnr, displayed, lines)
           hl_mode = "combine",
           strict = false,
         })
+        -- The sign takes the name's own colour (the group set_highlights just
+        -- put on it), with OilExecutableMark stacked on top: empty by default,
+        -- so defining it is how a colour of its own is chosen.
+        local groups = { "OilExecutableMark" }
+        local oil_ns = vim.api.nvim_create_namespace("Oil")
+        local on_name = vim.api.nvim_buf_get_extmarks(
+          bufnr,
+          oil_ns,
+          { lnum - 1, col_start },
+          { lnum - 1, col_start },
+          { details = true, limit = 1 }
+        )[1]
+        if on_name and on_name[4].hl_group then
+          table.insert(groups, 1, on_name[4].hl_group)
+        end
         vim.api.nvim_buf_set_extmark(bufnr, ns, lnum - 1, #line, {
-          virt_text = { { sign, "OilExecutableMark" } },
+          virt_text = { { sign, groups } },
           virt_text_pos = "inline",
           strict = false,
         })

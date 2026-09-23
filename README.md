@@ -82,8 +82,8 @@
 > - `view_options.executable_mark` (default `"*"`, `false` to disable): an
 >   executable file gets the sign drawn right after its name, as inline
 >   virtual text so the parser never sees it, and its name in `OilExecutable`,
->   italic by default. The sign is white by default; define `OilExecutableMark`
->   to change that.
+>   italic by default. The sign takes the name's colour; define
+>   `OilExecutableMark` to give it one of its own.
 > - The defaults are mine, not upstream's. The default keymaps are replaced
 >   wholesale (see `keymaps` in `lua/oil/config.lua`), and these options differ:
 >   no icon column, `signcolumn = "yes:2"` with `cursorline` and no line numbers,
