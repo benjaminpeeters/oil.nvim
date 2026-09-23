@@ -68,8 +68,12 @@ describe("extra_columns", function()
       -- fresh by age even when the calendar day has changed, like the text
       assert.equals("OilModifiedToday", group_of(extra.modified.render(entry({ mtime = now - 2 * 3600 }), {})))
       assert.equals("OilModifiedWeek", group_of(extra.modified.render(entry({ mtime = noon - DAY }), {})))
-      assert.equals("OilModifiedMonth", group_of(extra.modified.render(entry({ mtime = noon - 20 * DAY }), {})))
-      assert.equals("OilModifiedOld", group_of(extra.modified.render(entry({ mtime = noon - 40 * DAY }), {})))
+      assert.equals("OilModifiedWeek", group_of(extra.modified.render(entry({ mtime = noon - 6 * DAY }), {})))
+      assert.equals("OilModifiedMonth", group_of(extra.modified.render(entry({ mtime = noon - 8 * DAY }), {})))
+      assert.equals("OilModifiedMonth", group_of(extra.modified.render(entry({ mtime = noon - 36 * DAY }), {})))
+      assert.equals("OilModifiedHalfYear", group_of(extra.modified.render(entry({ mtime = noon - 40 * DAY }), {})))
+      assert.equals("OilModifiedHalfYear", group_of(extra.modified.render(entry({ mtime = noon - 180 * DAY }), {})))
+      assert.equals("OilModifiedOld", group_of(extra.modified.render(entry({ mtime = noon - 200 * DAY }), {})))
     end)
 
     it("uses one group when tiers is off", function()
@@ -111,6 +115,19 @@ describe("extra_columns", function()
       assert.equals("250k", text_of(extra.filesize.render(entry({ size = 250e3 }), { min = 100e3 })))
     end)
 
+    it("marks empty and near-empty files with a sign", function()
+      local empty = extra.filesize.render(entry({ size = 0 }), { min = 100e3 })
+      assert.same({ "∅", "OilSizeEmpty" }, empty)
+      local tiny = extra.filesize.render(entry({ size = 42 }), { min = 100e3 })
+      assert.same({ "∘", "OilSizeEmpty" }, tiny)
+      -- boundary: tiny_max itself is no longer tiny
+      assert.equals("", text_of(extra.filesize.render(entry({ size = 100 }), { min = 100e3 })))
+      -- both signs and the boundary are configurable
+      local custom = extra.filesize.render(entry({ size = 500 }), { min = 100e3, tiny = "~", tiny_max = 1000 })
+      assert.same({ "~", "OilSizeEmpty" }, custom)
+      assert.same({ "0", "OilSizeEmpty" }, extra.filesize.render(entry({ size = 0 }), { empty = "0" }))
+    end)
+
     it("shows nothing for directories", function()
       assert.equals("", text_of(extra.filesize.render(entry({ type = "directory", size = 4096 }), {})))
     end)
@@ -135,11 +152,11 @@ describe("extra_columns", function()
     it("colours by magnitude", function()
       local cases = {
         { 250e3, "OilRightColumn" },
-        { 3e6, "OilSizeXS" },
-        { 45e6, "OilSizeS" },
-        { 400e6, "OilSizeM" },
-        { 2e9, "OilSizeL" },
-        { 20e9, "OilSizeXL" },
+        { 3e6, "OilSize1M" },
+        { 45e6, "OilSize10M" },
+        { 400e6, "OilSize10M" },
+        { 2e9, "OilSize1G" },
+        { 20e9, "OilSize10G" },
       }
       for _, c in ipairs(cases) do
         assert.equals(c[2], group_of(extra.filesize.render(entry({ size = c[1] }), {})), tostring(c[1]))

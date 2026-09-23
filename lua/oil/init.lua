@@ -982,16 +982,17 @@ M._get_highlights = function()
   -- Groups for the fork's right-hand columns (oil.extra_columns)
   for _, g in ipairs({
     { "OilModified", "OilRightColumn", "modified column with tiers = false" },
-    { "OilModifiedToday", "OilRightColumn", "modified column, changed today" },
-    { "OilModifiedWeek", "OilRightColumn", "modified column, changed this week" },
-    { "OilModifiedMonth", "OilRightColumn", "modified column, changed this month" },
-    { "OilModifiedOld", "OilRightColumn", "modified column, older" },
+    { "OilModifiedToday", "OilRightColumn", "modified column, today or under 6 hours old" },
+    { "OilModifiedWeek", "OilRightColumn", "modified column, the 7 days before today" },
+    { "OilModifiedMonth", "OilRightColumn", "modified column, 7 to 37 days ago" },
+    { "OilModifiedHalfYear", "OilRightColumn", "modified column, 37 days to 6 months ago" },
+    { "OilModifiedOld", "OilRightColumn", "modified column, older than 6 months" },
     { "OilSize", "OilRightColumn", "filesize column with tiers = false" },
-    { "OilSizeXS", "OilRightColumn", "filesize column, 1 MB and up" },
-    { "OilSizeS", "OilRightColumn", "filesize column, 10 MB and up" },
-    { "OilSizeM", "OilRightColumn", "filesize column, 100 MB and up" },
-    { "OilSizeL", "OilRightColumn", "filesize column, 1 GB and up" },
-    { "OilSizeXL", "OilRightColumn", "filesize column, 10 GB and up" },
+    { "OilSizeEmpty", "OilRightColumn", "filesize column, the empty and near-empty signs" },
+    { "OilSize1M", "OilRightColumn", "filesize column, 1 MB and up" },
+    { "OilSize10M", "OilRightColumn", "filesize column, 10 MB and up" },
+    { "OilSize1G", "OilRightColumn", "filesize column, 1 GB and up" },
+    { "OilSize10G", "OilRightColumn", "filesize column, 10 GB and up" },
     { "OilPermissionHint", "OilRightColumn", "permissions_hint column (ro, x)" },
   }) do
     table.insert(highlights, { name = g[1], link = g[2], desc = g[3] })

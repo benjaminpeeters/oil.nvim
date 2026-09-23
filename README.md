@@ -51,13 +51,17 @@
 >   stat that oil fetches anyway: `modified` with `style` `natural` (an age
 >   while fresh, then `today 14:01`, `yest. 09:12`, `Mon 14:01`, `15 Mar`,
 >   `2023-03-15`, all within 11 characters), `relative` (always an age) or
->   `absolute` (`format`), coloured by age in four steps (today, week, month,
->   older; groups `OilModifiedToday` to `OilModifiedOld`) or, with
+>   `absolute` (`format`), coloured by age in five steps (today or under 6 h,
+>   the 7 days before, the 30 days before that, up to 6 months, older; groups
+>   `OilModifiedToday`, `Week`, `Month`, `HalfYear`, `Old`) or, with
 >   `tiers = false`, in the single group `OilModified`;
 >   `filesize` with `min` (bytes, nothing shown below it, or `below` as a
 >   placeholder), formatted like `ls -h` in at most 4 characters, with colour
->   tiers from 1 MB to 10 GB (`OilSizeXS` to `OilSizeXL`) or, with
->   `tiers = false`, the single group `OilSize`. Directories show nothing unless asked: their real
+>   tiers at 1 MB, 10 MB, 1 GB and 10 GB (`OilSize1M` to `OilSize10G`) or, with
+>   `tiers = false`, the single group `OilSize`. Two signs for the extremes,
+>   in `OilSizeEmpty`: `empty` (default `∅`) for exactly 0 bytes and `tiny`
+>   (default `∘`) below `tiny_max` (default 100 bytes), for files and walked
+>   directories alike. Directories show nothing unless asked: their real
 >   size is a walk of everything under them, so it is opt-in through `dirs`:
 >   `mode` `budget` (stop after `max_files`, default 5000, and show a lower
 >   bound such as `>2.1G`) or `exact`; `async` (default true: the listing

@@ -96,8 +96,8 @@ local function natural(sec, now)
   end
 end
 
----Highlight by recency, on the calendar like the text: today, the last week,
----the last month, older.
+---Highlight by recency, on the calendar like the text: today, the 7 days
+---before, the 30 days before that, up to 6 months, older.
 ---@param sec integer
 ---@param now integer
 ---@return string
@@ -107,10 +107,12 @@ local function recency_group(sec, now)
   -- says, so "2h ago" at 01:00 is not coloured as yesterday
   if sec >= midnight or now - sec < 6 * HOUR then
     return "OilModifiedToday"
-  elseif sec >= midnight - 6 * DAY then
+  elseif sec >= midnight - 7 * DAY then
     return "OilModifiedWeek"
-  elseif sec >= midnight - 29 * DAY then
+  elseif sec >= midnight - 37 * DAY then
     return "OilModifiedMonth"
+  elseif sec >= midnight - 183 * DAY then
+    return "OilModifiedHalfYear"
   else
     return "OilModifiedOld"
   end
@@ -192,13 +194,13 @@ local function human_size(size)
   return tostring(size)
 end
 
--- Colour by magnitude. Each threshold is the lowest size that takes its group.
+-- Colour by magnitude. Each threshold is the lowest size that takes its group;
+-- the group name carries the threshold.
 local SIZE_TIERS = {
-  { 10e9, "OilSizeXL" },
-  { 1e9, "OilSizeL" },
-  { 100e6, "OilSizeM" },
-  { 10e6, "OilSizeS" },
-  { 1e6, "OilSizeXS" },
+  { 10e9, "OilSize10G" },
+  { 1e9, "OilSize1G" },
+  { 10e6, "OilSize10M" },
+  { 1e6, "OilSize1M" },
 }
 
 ---@param size integer
@@ -214,6 +216,26 @@ local function size_group(size, conf)
     end
   end
   return "OilRightColumn"
+end
+
+---Below `min` nothing is shown, except two signs for the extremes: empty
+---(exactly 0 bytes) and near-empty (under `tiny_max`, default 100 bytes).
+---@param bytes integer
+---@param conf table|nil
+---@return string|table|nil nil when the size should be shown as a number
+local function small_size(bytes, conf)
+  if bytes == 0 then
+    return { conf and conf.empty or "∅", "OilSizeEmpty" }
+  end
+  local tiny_max = conf and conf.tiny_max or 100
+  if bytes < tiny_max then
+    return { conf and conf.tiny or "∘", "OilSizeEmpty" }
+  end
+  local min = conf and conf.min or 0
+  if bytes < min then
+    return conf and conf.below or ""
+  end
+  return nil
 end
 
 ---Size of a directory through oil.dirsize, or nil while it is being computed.
@@ -240,9 +262,9 @@ local function directory_size(entry, conf, bufnr)
   elseif result == false then
     return "" -- cannot be known; already reported
   end
-  local min = conf and conf.min or 0
-  if result.bytes < min then
-    return conf and conf.below or ""
+  local small = small_size(result.bytes, conf)
+  if small then
+    return small
   end
   local text = human_size(result.bytes)
   if result.capped then
@@ -254,7 +276,7 @@ end
 M.filesize = {
   require_stat = true,
 
-  ---@param conf? {min?: integer, below?: string, tiers?: boolean, dirs?: table} see oil.dirsize for dirs
+  ---@param conf? {min?: integer, below?: string, empty?: string, tiny?: string, tiny_max?: integer, tiers?: boolean, dirs?: table} see oil.dirsize for dirs
   render = function(entry, conf, bufnr)
     -- a directory's own stat size is its block allocation and means nothing;
     -- its real size is a walk, which oil.dirsize does on request
@@ -265,9 +287,9 @@ M.filesize = {
     if not stat then
       return columns.EMPTY
     end
-    local min = conf and conf.min or 0
-    if stat.size < min then
-      return conf and conf.below or ""
+    local small = small_size(stat.size, conf)
+    if small then
+      return small
     end
     return { human_size(stat.size), size_group(stat.size, conf) }
   end,
