@@ -51,10 +51,13 @@
 >   stat that oil fetches anyway: `modified` with `style` `natural` (an age
 >   while fresh, then `today 14:01`, `yest. 09:12`, `Mon 14:01`, `15 Mar`,
 >   `2023-03-15`, all within 11 characters), `relative` (always an age) or
->   `absolute` (`format`);
+>   `absolute` (`format`), coloured by age in four steps (today, week, month,
+>   older; groups `OilModifiedToday` to `OilModifiedOld`) or, with
+>   `tiers = false`, in the single group `OilModified`;
 >   `filesize` with `min` (bytes, nothing shown below it, or `below` as a
 >   placeholder), formatted like `ls -h` in at most 4 characters, with colour
->   tiers from 1 MB to 10 GB. Directories show nothing unless asked: their real
+>   tiers from 1 MB to 10 GB (`OilSizeXS` to `OilSizeXL`) or, with
+>   `tiers = false`, the single group `OilSize`. Directories show nothing unless asked: their real
 >   size is a walk of everything under them, so it is opt-in through `dirs`:
 >   `mode` `budget` (stop after `max_files`, default 5000, and show a lower
 >   bound such as `>2.1G`) or `exact`; `async` (default true: the listing
@@ -70,9 +73,8 @@
 >   showing `ro` or `x` only when they apply; and `count`, the number of
 >   entries in a subdirectory, which reads the directory and is therefore not
 >   in the default: `{ "count", max = 9 }` stops reading after ten entries and
->   shows `9+`, `max = false` counts exactly. Highlight groups:
->   `OilRightColumn`, `OilModifiedToday`/`Week`/`Old`, `OilSizeXS` to
->   `OilSizeXL`, `OilPermissionHint`.
+>   shows `9+`, `max = false` counts exactly. The base group for all of them
+>   is `OilRightColumn`; `permissions_hint` uses `OilPermissionHint`.
 > - The defaults are mine, not upstream's. The default keymaps are replaced
 >   wholesale (see `keymaps` in `lua/oil/config.lua`), and these options differ:
 >   no icon column, `signcolumn = "yes:2"` with `cursorline` and no line numbers,

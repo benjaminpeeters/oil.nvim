@@ -981,9 +981,12 @@ M._get_highlights = function()
 
   -- Groups for the fork's right-hand columns (oil.extra_columns)
   for _, g in ipairs({
+    { "OilModified", "OilRightColumn", "modified column with tiers = false" },
     { "OilModifiedToday", "OilRightColumn", "modified column, changed today" },
     { "OilModifiedWeek", "OilRightColumn", "modified column, changed this week" },
+    { "OilModifiedMonth", "OilRightColumn", "modified column, changed this month" },
     { "OilModifiedOld", "OilRightColumn", "modified column, older" },
+    { "OilSize", "OilRightColumn", "filesize column with tiers = false" },
     { "OilSizeXS", "OilRightColumn", "filesize column, 1 MB and up" },
     { "OilSizeS", "OilRightColumn", "filesize column, 10 MB and up" },
     { "OilSizeM", "OilRightColumn", "filesize column, 100 MB and up" },

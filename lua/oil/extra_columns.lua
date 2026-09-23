@@ -97,7 +97,7 @@ local function natural(sec, now)
 end
 
 ---Highlight by recency, on the calendar like the text: today, the last week,
----older.
+---the last month, older.
 ---@param sec integer
 ---@param now integer
 ---@return string
@@ -107,6 +107,8 @@ local function recency_group(sec, now)
     return "OilModifiedToday"
   elseif sec >= midnight - 6 * DAY then
     return "OilModifiedWeek"
+  elseif sec >= midnight - 29 * DAY then
+    return "OilModifiedMonth"
   else
     return "OilModifiedOld"
   end
@@ -115,7 +117,7 @@ end
 M.modified = {
   require_stat = true,
 
-  ---@param conf? {style?: "natural"|"relative"|"absolute", format?: string}
+  ---@param conf? {style?: "natural"|"relative"|"absolute", format?: string, tiers?: boolean}
   render = function(entry, conf)
     local stat = stat_of(entry)
     if not stat then
@@ -134,7 +136,9 @@ M.modified = {
     else
       error(string.format("modified: unknown style %q (natural, relative or absolute)", style))
     end
-    return { text, recency_group(sec, now) }
+    -- tiers = false: one colour, OilModified, for users who want no gradient
+    local group = (conf and conf.tiers == false) and "OilModified" or recency_group(sec, now)
+    return { text, group }
   end,
 
   get_sort_value = function(entry)
@@ -196,8 +200,12 @@ local SIZE_TIERS = {
 }
 
 ---@param size integer
+---@param conf? {tiers?: boolean}
 ---@return string
-local function size_group(size)
+local function size_group(size, conf)
+  if conf and conf.tiers == false then
+    return "OilSize"
+  end
   for _, tier in ipairs(SIZE_TIERS) do
     if size >= tier[1] then
       return tier[2]
@@ -238,13 +246,13 @@ local function directory_size(entry, conf, bufnr)
   if result.capped then
     text = ">" .. text
   end
-  return { text, size_group(result.bytes) }
+  return { text, size_group(result.bytes, conf) }
 end
 
 M.filesize = {
   require_stat = true,
 
-  ---@param conf? {min?: integer, below?: string, dirs?: table} see oil.dirsize for dirs
+  ---@param conf? {min?: integer, below?: string, tiers?: boolean, dirs?: table} see oil.dirsize for dirs
   render = function(entry, conf, bufnr)
     -- a directory's own stat size is its block allocation and means nothing;
     -- its real size is a walk, which oil.dirsize does on request
@@ -259,7 +267,7 @@ M.filesize = {
     if stat.size < min then
       return conf and conf.below or ""
     end
-    return { human_size(stat.size), size_group(stat.size) }
+    return { human_size(stat.size), size_group(stat.size, conf) }
   end,
 
   get_sort_value = function(entry)

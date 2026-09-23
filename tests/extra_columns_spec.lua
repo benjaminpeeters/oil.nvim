@@ -66,7 +66,13 @@ describe("extra_columns", function()
     it("colours by calendar recency", function()
       assert.equals("OilModifiedToday", group_of(extra.modified.render(entry({ mtime = now - 10 }), {})))
       assert.equals("OilModifiedWeek", group_of(extra.modified.render(entry({ mtime = noon - DAY }), {})))
-      assert.equals("OilModifiedOld", group_of(extra.modified.render(entry({ mtime = noon - 30 * DAY }), {})))
+      assert.equals("OilModifiedMonth", group_of(extra.modified.render(entry({ mtime = noon - 20 * DAY }), {})))
+      assert.equals("OilModifiedOld", group_of(extra.modified.render(entry({ mtime = noon - 40 * DAY }), {})))
+    end)
+
+    it("uses one group when tiers is off", function()
+      assert.equals("OilModified", group_of(extra.modified.render(entry({ mtime = now - 10 }), { tiers = false })))
+      assert.equals("OilModified", group_of(extra.modified.render(entry({ mtime = noon - 40 * DAY }), { tiers = false })))
     end)
 
     it("supports relative and absolute styles", function()
@@ -117,6 +123,11 @@ describe("extra_columns", function()
         assert.equals(c[2], text, tostring(c[1]))
         assert.is_true(#text <= extra.filesize.width({}), text)
       end
+    end)
+
+    it("uses one group when tiers is off", function()
+      assert.equals("OilSize", group_of(extra.filesize.render(entry({ size = 250e3 }), { tiers = false })))
+      assert.equals("OilSize", group_of(extra.filesize.render(entry({ size = 20e9 }), { tiers = false })))
     end)
 
     it("colours by magnitude", function()
