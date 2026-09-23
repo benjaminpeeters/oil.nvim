@@ -103,7 +103,9 @@ end
 ---@return string
 local function recency_group(sec, now)
   local midnight = midnight_of(now)
-  if sec >= midnight then
+  -- same rule as the text: an age under 6 hours is fresh whatever the clock
+  -- says, so "2h ago" at 01:00 is not coloured as yesterday
+  if sec >= midnight or now - sec < 6 * HOUR then
     return "OilModifiedToday"
   elseif sec >= midnight - 6 * DAY then
     return "OilModifiedWeek"

@@ -65,6 +65,8 @@ describe("extra_columns", function()
 
     it("colours by calendar recency", function()
       assert.equals("OilModifiedToday", group_of(extra.modified.render(entry({ mtime = now - 10 }), {})))
+      -- fresh by age even when the calendar day has changed, like the text
+      assert.equals("OilModifiedToday", group_of(extra.modified.render(entry({ mtime = now - 2 * 3600 }), {})))
       assert.equals("OilModifiedWeek", group_of(extra.modified.render(entry({ mtime = noon - DAY }), {})))
       assert.equals("OilModifiedMonth", group_of(extra.modified.render(entry({ mtime = noon - 20 * DAY }), {})))
       assert.equals("OilModifiedOld", group_of(extra.modified.render(entry({ mtime = noon - 40 * DAY }), {})))
