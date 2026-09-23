@@ -103,6 +103,24 @@ a.describe("dirsize", function()
     assert.equals(2500, dirsize.get(root .. "/d", { mode = "exact", async = false }, nil, function() end).bytes)
   end)
 
+  a.it("measures an excluded directory itself, pruning only below it", function()
+    tmpdir:create({ "d/.git/", "d/.git/modules/.git/" })
+    write(root .. "/d/.git/objects", 1000)
+    write(root .. "/d/.git/modules/.git/pack", 1000)
+    local conf = { mode = "exact", async = false, exclude = { ".git" } }
+    assert.same({ bytes = 1000, capped = false }, dirsize.get(root .. "/d/.git", conf, nil, function() end))
+  end)
+
+  a.it("follows symlinks, so a directory of links is not empty", function()
+    tmpdir:create({ "links/" })
+    assert(vim.uv.fs_symlink(root .. "/d/a", root .. "/links/file"))
+    assert(vim.uv.fs_symlink(root .. "/d/sub", root .. "/links/dir"))
+    local conf = { mode = "exact", async = false }
+    assert.same({ bytes = 500, capped = false }, dirsize.get(root .. "/links", conf, nil, function() end))
+    -- the path measured may itself be a link to a directory
+    assert.same({ bytes = 200, capped = false }, dirsize.get(root .. "/links/dir", conf, nil, function() end))
+  end)
+
   a.it("remembers an unreadable directory as blank, without a notification", function()
     local conf = { mode = "exact", async = false }
     local notified = 0

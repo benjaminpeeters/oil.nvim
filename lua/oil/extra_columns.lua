@@ -34,6 +34,16 @@ local function stat_of(entry)
   return meta and meta.stat
 end
 
+---A directory, or a link to one: the files adapter puts the target's stat in
+---meta.link_stat.
+local function is_directory(entry)
+  if entry[FIELD_TYPE] == "directory" then
+    return true
+  end
+  local meta = entry[FIELD_META]
+  return entry[FIELD_TYPE] == "link" and meta ~= nil and meta.link_stat ~= nil and meta.link_stat.type == "directory"
+end
+
 -- modified --------------------------------------------------------------------
 
 local MINUTE, HOUR, DAY, WEEK, MONTH, YEAR = 60, 3600, 86400, 604800, 2592000, 31536000
@@ -280,7 +290,7 @@ M.filesize = {
   render = function(entry, conf, bufnr)
     -- a directory's own stat size is its block allocation and means nothing;
     -- its real size is a walk, which oil.dirsize does on request
-    if entry[FIELD_TYPE] == "directory" then
+    if is_directory(entry) then
       return directory_size(entry, conf, bufnr)
     end
     local stat = stat_of(entry)

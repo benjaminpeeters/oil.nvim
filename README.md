@@ -69,7 +69,11 @@
 >   (default 300) before a directory is walked again, also dropped when its own
 >   mtime changes or oil mutates anything; `exclude`, directory names pruned
 >   from the walk (the default excludes `.git`, whose object files would spend
->   the budget on history; drop it for the true footprint); `source = "duc"` reads a pre-built
+>   the budget on history; drop it for the true footprint; an excluded
+>   directory still gets its own size). The walk follows symlinks, so a link
+>   counts as its target, as it does for files, and a link to a directory is
+>   sized like the directory; content reached through two links counts
+>   twice. `source = "duc"` reads a pre-built
 >   index instead of walking, one call per listing (untested here: duc is not
 >   installed on this machine). A change made outside oil deep inside a
 >   directory is invisible until the TTL passes; that is a filesystem limit,

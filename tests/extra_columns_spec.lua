@@ -132,6 +132,15 @@ describe("extra_columns", function()
       assert.equals("", text_of(extra.filesize.render(entry({ type = "directory", size = 4096 }), {})))
     end)
 
+    it("treats a link to a directory as a directory, not as the target's 4096 bytes", function()
+      local link = entry({ type = "link", size = 4096 })
+      link[FIELD_META].link_stat = { type = "directory", size = 4096 }
+      assert.equals("", text_of(extra.filesize.render(link, {})))
+      local file_link = entry({ type = "link", size = 4096 })
+      file_link[FIELD_META].link_stat = { type = "file", size = 4096 }
+      assert.equals("4.1k", text_of(extra.filesize.render(file_link, {})))
+    end)
+
     it("formats like ls -h and never exceeds 4 characters", function()
       local cases = {
         { 999, "999" }, { 1000, "1.0k" }, { 9950, "10k" }, { 999499, "999k" }, { 999500, "1.0M" },

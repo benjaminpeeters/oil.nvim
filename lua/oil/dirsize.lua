@@ -18,15 +18,19 @@
 --   exclude   directory names pruned from the walk, e.g. { ".git" }: they cost
 --             nothing and do not count. A repository's .git/objects holds
 --             thousands of small files that would otherwise use up the budget
---             on bytes that are history rather than data.
+--             on bytes that are history rather than data. An excluded directory
+--             still gets its own size when it is the one being measured.
 --   source    "walk" (find, see below) or "duc", a pre-built index kept up to
 --             date out of band (`duc index <root>` from a timer), read with one
 --             call per listing. Untested here: duc is not installed on the
 --             machine this was written on. Failures are reported, never hidden.
 --
 -- The walk is GNU find printing file sizes, summed here, with `head` cutting
--- it off for the budget. Files only, no symlink following, apparent sizes,
--- the same numbers the filesize column shows for files.
+-- it off for the budget. Files only, apparent sizes, symlinks followed: a link
+-- counts as its target, the same numbers the filesize column shows for files
+-- and linked files. A directory of links (a shared .claude/) is therefore not
+-- shown as empty. Content reached through two links counts twice; find reports
+-- a link loop on stderr and walks on.
 local M = {}
 
 ---@class oil.DirSizeResult
@@ -88,12 +92,14 @@ local function sum_lines(stdout, max_files)
 end
 
 ---find, as an argument list (no shell quoting to get wrong): prune the excluded
----directory names, print the size of every regular file.
+---directory names, print the size of every regular file. -mindepth 1 keeps the
+---tests off the starting point, which is a directory and never counted anyway:
+---without it, the size of .git itself would prune .git and come out as 0.
 ---@param path string
 ---@param exclude string[]|nil
 ---@return string[]
 local function find_argv(path, exclude)
-  local argv = { "find", path }
+  local argv = { "find", "-L", path, "-mindepth", "1" }
   if exclude and #exclude > 0 then
     table.insert(argv, "(")
     for i, name in ipairs(exclude) do
