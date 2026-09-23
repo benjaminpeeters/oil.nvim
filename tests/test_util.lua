@@ -21,6 +21,7 @@ M.pinned_setup_opts = {
   git_status = { enabled = false },
   cd_on_enter = false,
   right_columns = {},
+  view_options = { executable_mark = false },
 }
 
 ---setup() with the pins above plus overrides. Calling require("oil").setup

@@ -73,12 +73,16 @@
 >   index instead of walking, one call per listing (untested here: duc is not
 >   installed on this machine). A change made outside oil deep inside a
 >   directory is invisible until the TTL passes; that is a filesystem limit,
->   not a bug. `permissions_hint`,
+>   not a bug. `permissions_hint`, not in the default set,
 >   showing `ro` or `x` only when they apply; and `count`, the number of
 >   entries in a subdirectory, which reads the directory and is therefore not
 >   in the default: `{ "count", max = 9 }` stops reading after ten entries and
 >   shows `9+`, `max = false` counts exactly. The base group for all of them
 >   is `OilRightColumn`; `permissions_hint` uses `OilPermissionHint`.
+> - `view_options.executable_mark` (default `"*"`, `false` to disable): an
+>   executable file gets the sign drawn right after its name, as inline
+>   virtual text so the parser never sees it, and its name in `OilExecutable`,
+>   italic by default (`OilExecutableMark` colours the sign).
 > - The defaults are mine, not upstream's. The default keymaps are replaced
 >   wholesale (see `keymaps` in `lua/oil/config.lua`), and these options differ:
 >   no icon column, `signcolumn = "yes:2"` with `cursorline` and no line numbers,

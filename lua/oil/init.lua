@@ -987,6 +987,8 @@ M._get_highlights = function()
     { "OilModifiedMonth", "OilRightColumn", "modified column, 7 to 37 days ago" },
     { "OilModifiedHalfYear", "OilRightColumn", "modified column, 37 days to 6 months ago" },
     { "OilModifiedOld", "OilRightColumn", "modified column, older than 6 months" },
+    { "OilExecutable", nil, "name of an executable file (view_options.executable_mark); italic by default" },
+    { "OilExecutableMark", "OilRightColumn", "the sign after an executable file's name" },
     { "OilSize", "OilRightColumn", "filesize column with tiers = false" },
     { "OilSizeEmpty", "OilRightColumn", "filesize column, the empty and near-empty signs" },
     { "OilSize1M", "OilRightColumn", "filesize column, 1 MB and up" },
@@ -1033,6 +1035,8 @@ local function set_colors()
       vim.api.nvim_set_hl(0, conf.name, { default = true, link = conf.link })
     end
   end
+  -- an attribute, not a link: italic on top of whatever colour the name has
+  vim.api.nvim_set_hl(0, "OilExecutable", { default = true, italic = true })
 end
 
 ---Save all changes

@@ -31,7 +31,6 @@ local default_config = {
   -- filesize (min, below), modified (style: natural, relative or absolute),
   -- and count (max), which reads each subdirectory and is off by default.
   right_columns = {
-    "permissions_hint",
     {
       "filesize",
       min = 100e3,
@@ -145,6 +144,10 @@ local default_config = {
       { "type", "asc" },
       { "name", "asc" },
     },
+    -- Mark executable regular files like `ls -F`: this sign drawn right after the
+    -- name (as virtual text, never in the buffer) and the name in OilExecutable,
+    -- italic by default. false to disable. Fork addition.
+    executable_mark = "*",
     -- Customize the highlight group for the file name
     -- Default: colour by extension, by a few exact names, and links by their target
     highlight_filename = function(entry, is_hidden, is_link_target, is_link_orphan)
@@ -370,6 +373,7 @@ local M = {}
 ---@field case_insensitive? boolean Sort file and directory names case insensitive
 ---@field sort? oil.SortSpec[] Sort order for the file list
 ---@field highlight_filename? fun(entry: oil.Entry, is_hidden: boolean, is_link_target: boolean, is_link_orphan: boolean): string|nil Customize the highlight group for the file name
+---@field executable_mark? string|false Sign drawn after the name of an executable file, as virtual text; the name takes OilExecutable
 
 ---@class (exact) oil.SortSpec
 ---@field [1] string

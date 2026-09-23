@@ -743,6 +743,46 @@ M.refresh_right_columns = function(bufnr)
   end)
 end
 
+local S_IXUSR = 64 -- 0100
+
+---Mark executable regular files like `ls -F`: the configured sign as inline
+---virtual text right after the name, and OilExecutable layered on the name.
+---Neither touches the buffer text, so the parser still sees the bare name.
+---@param bufnr integer
+---@param displayed oil.InternalEntry[] entries in buffer order, one per line
+---@param lines string[] the rendered lines, same order
+local function render_executable_marks(bufnr, displayed, lines)
+  local ns = vim.api.nvim_create_namespace("OilExecutable")
+  vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+  local sign = config.view_options.executable_mark
+  if not sign then
+    return
+  end
+  for lnum, entry in ipairs(displayed) do
+    local meta = entry[FIELD_META]
+    local stat = meta and meta.stat
+    if entry[FIELD_TYPE] == "file" and stat and stat.mode and bit.band(stat.mode, S_IXUSR) ~= 0 then
+      local name, line = entry[FIELD_NAME], lines[lnum]
+      -- a plain file's name is the tail of its line; anything else means the
+      -- name was rendered in a way this does not understand, so leave it alone
+      if line and line:sub(-#name) == name then
+        local col_start = #line - #name
+        vim.api.nvim_buf_set_extmark(bufnr, ns, lnum - 1, col_start, {
+          end_col = #line,
+          hl_group = "OilExecutable",
+          hl_mode = "combine",
+          strict = false,
+        })
+        vim.api.nvim_buf_set_extmark(bufnr, ns, lnum - 1, #line, {
+          virt_text = { { sign, "OilExecutableMark" } },
+          virt_text_pos = "inline",
+          strict = false,
+        })
+      end
+    end
+  end
+end
+
 render_right_columns = function(bufnr, adapter, displayed)
   last_render[bufnr] = { adapter = adapter, displayed = displayed }
   local ns = vim.api.nvim_create_namespace("OilRightColumns")
@@ -874,6 +914,7 @@ local function render_buffer(bufnr, opts)
   vim.bo[bufnr].modifiable = false
   vim.bo[bufnr].modified = false
   util.set_highlights(bufnr, highlights)
+  render_executable_marks(bufnr, displayed, lines)
   render_right_columns(bufnr, adapter, displayed)
 
   if opts.jump then
@@ -1030,6 +1071,11 @@ local function get_used_columns()
   for _, def in ipairs(config.right_columns) do
     local name = util.split_config(def)
     table.insert(cols, name)
+  end
+  -- the executable mark reads the mode bits, which only a stat provides; size
+  -- is any column that makes the files adapter stat its entries
+  if config.view_options.executable_mark then
+    table.insert(cols, "size")
   end
   for _, sort_pair in ipairs(config.view_options.sort) do
     local name = sort_pair[1]
