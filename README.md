@@ -60,7 +60,9 @@
 >   bound such as `>2.1G`) or `exact`; `async` (default true: the listing
 >   appears at once and sizes fill in) or false to wait; `cache_ttl` seconds
 >   (default 300) before a directory is walked again, also dropped when its own
->   mtime changes or oil mutates anything; `source = "duc"` reads a pre-built
+>   mtime changes or oil mutates anything; `exclude`, directory names pruned
+>   from the walk (the default excludes `.git`, whose object files would spend
+>   the budget on history; drop it for the true footprint); `source = "duc"` reads a pre-built
 >   index instead of walking, one call per listing (untested here: duc is not
 >   installed on this machine). A change made outside oil deep inside a
 >   directory is invisible until the TTL passes; that is a filesystem limit,

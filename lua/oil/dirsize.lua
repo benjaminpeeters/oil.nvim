@@ -15,6 +15,10 @@
 --             and when oil completes a mutation anywhere. A change made outside
 --             oil deep inside a directory is not detectable cheaply; the TTL is
 --             what bounds that staleness.
+--   exclude   directory names pruned from the walk, e.g. { ".git" }: they cost
+--             nothing and do not count. A repository's .git/objects holds
+--             thousands of small files that would otherwise use up the budget
+--             on bytes that are history rather than data.
 --   source    "walk" (find, see below) or "duc", a pre-built index kept up to
 --             date out of band (`duc index <root>` from a timer), read with one
 --             call per listing. Untested here: duc is not installed on the
@@ -83,25 +87,45 @@ local function sum_lines(stdout, max_files)
   return { bytes = total, capped = max_files ~= nil and n > max_files }
 end
 
+---find, as an argument list (no shell quoting to get wrong): prune the excluded
+---directory names, print the size of every regular file.
+---@param path string
+---@param exclude string[]|nil
+---@return string[]
+local function find_argv(path, exclude)
+  local argv = { "find", path }
+  if exclude and #exclude > 0 then
+    table.insert(argv, "(")
+    for i, name in ipairs(exclude) do
+      if i > 1 then
+        table.insert(argv, "-o")
+      end
+      table.insert(argv, "-name")
+      table.insert(argv, name)
+    end
+    vim.list_extend(argv, { ")", "-prune", "-o" })
+  end
+  vim.list_extend(argv, { "-type", "f", "-printf", "%s\n" })
+  return argv
+end
+
 ---The walk command. With a budget, head asks for one line more than the
----budget so that reaching it is distinguishable from exactly filling it.
+---budget so that reaching it is distinguishable from exactly filling it, and
+---its closing of the pipe is what stops find early.
 ---@param path string
 ---@param conf table
 ---@return string[] cmd
 ---@return integer|nil max_files
 local function walk_command(path, conf)
+  local find = find_argv(path, conf.exclude)
   if conf.mode == "budget" then
     local max_files = conf.max_files or 5000
-    return {
-      "sh",
-      "-c",
-      [[find "$1" -type f -printf '%s\n' 2>/dev/null | head -n "$2"]],
-      "sh",
-      path,
-      tostring(max_files + 1),
-    }, max_files
+    -- sh -c '"$@" | head -n "$0"' <count> find ...: $0 is the count, "$@" the find call
+    local cmd = { "sh", "-c", [["$@" | head -n "$0"]], tostring(max_files + 1) }
+    vim.list_extend(cmd, find)
+    return cmd, max_files
   elseif conf.mode == "exact" then
-    return { "sh", "-c", [[find "$1" -type f -printf '%s\n' 2>/dev/null]], "sh", path }, nil
+    return find, nil
   end
   error(string.format("dirsize: mode must be off, budget or exact, got %s", vim.inspect(conf.mode)))
 end
@@ -114,17 +138,16 @@ end
 local function walk(path, conf, mtime, on_done)
   local cmd, max_files = walk_command(path, conf)
   local function finish(out)
-    if out.code ~= 0 and out.stdout == "" then
-      -- find itself failed (not a permission problem inside the tree, which
-      -- 2>/dev/null hides and which just makes the sum a lower bound)
-      vim.notify(
-        string.format("dirsize: %s failed on %s: %s", cmd[1], path, vim.trim(out.stderr or "")),
-        vim.log.levels.WARN
-      )
+    if out.code ~= 0 and (out.stdout or "") == "" then
+      -- nothing could be read at all, typically another user's directory on a
+      -- shared filesystem: a fact to display as blank, not an error to report
+      -- on every listing. Remembered for the TTL so it is not retried each render.
       store(path, false, mtime)
       on_done(false)
       return
     end
+    -- permission errors inside the tree only make the sum a lower bound; find
+    -- still prints what it could read
     local result = sum_lines(out.stdout or "", max_files)
     store(path, result, mtime)
     on_done(result)

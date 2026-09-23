@@ -93,7 +93,17 @@ a.describe("dirsize", function()
     assert.same({ bytes = 1500, capped = false }, dirsize.get(root .. "/d", conf, 1, function() end))
   end)
 
-  a.it("remembers a failure instead of retrying it on every call", function()
+  a.it("prunes excluded directory names, at any depth", function()
+    tmpdir:create({ "d/.git/", "d/sub/.git/" })
+    write(root .. "/d/.git/objects", 1000)
+    write(root .. "/d/sub/.git/pack", 1000)
+    local conf = { mode = "exact", async = false, exclude = { ".git" } }
+    assert.same({ bytes = 500, capped = false }, dirsize.get(root .. "/d", conf, nil, function() end))
+    dirsize.clear()
+    assert.equals(2500, dirsize.get(root .. "/d", { mode = "exact", async = false }, nil, function() end).bytes)
+  end)
+
+  a.it("remembers an unreadable directory as blank, without a notification", function()
     local conf = { mode = "exact", async = false }
     local notified = 0
     local orig = vim.notify
@@ -105,7 +115,7 @@ a.describe("dirsize", function()
     vim.notify = orig
     assert.is_false(r1)
     assert.is_false(r2)
-    assert.equals(1, notified)
+    assert.equals(0, notified)
   end)
 
   a.it("rejects an unknown mode loudly", function()

@@ -36,8 +36,10 @@ local default_config = {
       "filesize",
       min = 100e3,
       align = "right",
-      -- directories too: a walk capped at 5000 files, done in the background
-      dirs = { mode = "budget", max_files = 5000, async = true },
+      -- directories too: a walk capped at 5000 files, done in the background.
+      -- .git is pruned: its thousands of small object files would spend the
+      -- budget on history rather than data. Drop `exclude` for the footprint.
+      dirs = { mode = "budget", max_files = 5000, async = true, exclude = { ".git" } },
     },
     { "modified", style = "natural" },
   },
