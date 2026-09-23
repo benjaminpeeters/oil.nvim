@@ -206,14 +206,50 @@ local function size_group(size)
   return "OilRightColumn"
 end
 
+---Size of a directory through oil.dirsize, or nil while it is being computed.
+---@return string|table
+local function directory_size(entry, conf, bufnr)
+  local dirs = conf and conf.dirs
+  if not dirs or dirs.mode == nil or dirs.mode == "off" then
+    return ""
+  end
+  local name = entry[FIELD_NAME]
+  if name == ".." then
+    return ""
+  end
+  local parent = require("oil").get_current_dir(bufnr)
+  if not parent then
+    return ""
+  end
+  local stat = stat_of(entry)
+  local result = require("oil.dirsize").get(parent .. name, dirs, stat and stat.mtime.sec, function()
+    require("oil.view").refresh_right_columns(bufnr)
+  end)
+  if result == nil then
+    return { "…", "OilRightColumn" } -- in flight, a redraw follows
+  elseif result == false then
+    return "" -- cannot be known; already reported
+  end
+  local min = conf and conf.min or 0
+  if result.bytes < min then
+    return conf and conf.below or ""
+  end
+  local text = human_size(result.bytes)
+  if result.capped then
+    text = ">" .. text
+  end
+  return { text, size_group(result.bytes) }
+end
+
 M.filesize = {
   require_stat = true,
 
-  ---@param conf? {min?: integer, below?: string}
-  render = function(entry, conf)
-    -- a directory's stat size is its block allocation, which means nothing here
+  ---@param conf? {min?: integer, below?: string, dirs?: table} see oil.dirsize for dirs
+  render = function(entry, conf, bufnr)
+    -- a directory's own stat size is its block allocation and means nothing;
+    -- its real size is a walk, which oil.dirsize does on request
     if entry[FIELD_TYPE] == "directory" then
-      return ""
+      return directory_size(entry, conf, bufnr)
     end
     local stat = stat_of(entry)
     if not stat then
@@ -231,10 +267,12 @@ M.filesize = {
     return stat and stat.size or 0
   end,
 
-  ---@param conf? {below?: string}
+  ---@param conf? {below?: string, dirs?: table}
   ---@return integer
   width = function(conf)
-    return math.max(4, conf and conf.below and vim.api.nvim_strwidth(conf.below) or 0)
+    -- 4 for a size, one more for the ">" of a capped directory walk
+    local w = (conf and conf.dirs and conf.dirs.mode == "budget") and 5 or 4
+    return math.max(w, conf and conf.below and vim.api.nvim_strwidth(conf.below) or 0)
   end,
 
   parse = display_only("filesize"),

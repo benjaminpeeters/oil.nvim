@@ -658,6 +658,11 @@ end
 ---Right-hand column specs the adapter supports, or none while toggled off.
 ---@param adapter oil.Adapter
 ---@return oil.ColumnSpec[]
+---@param bufnr integer
+M.forget_right_columns = function(bufnr)
+  last_render[bufnr] = nil
+end
+
 M.get_right_columns = function(adapter)
   if not right_columns_enabled then
     return {}
@@ -711,7 +716,35 @@ end
 ---@param bufnr integer
 ---@param adapter oil.Adapter
 ---@param displayed oil.InternalEntry[] entries in buffer order, one per line
-local function render_right_columns(bufnr, adapter, displayed)
+local render_right_columns
+
+---What each buffer showed at its last render, so the right-hand columns can
+---be redrawn on their own when an asynchronous value (a directory size)
+---arrives, without touching the buffer text.
+---@type table<integer, {adapter: oil.Adapter, displayed: oil.InternalEntry[]}>
+local last_render = {}
+local refresh_scheduled = {}
+
+---Redraw only the right-hand columns of a buffer. Coalesces: many values
+---arriving in one tick cause one redraw. Safe while the buffer is being
+---edited, since it only replaces extmarks.
+---@param bufnr integer
+M.refresh_right_columns = function(bufnr)
+  if refresh_scheduled[bufnr] then
+    return
+  end
+  refresh_scheduled[bufnr] = true
+  vim.schedule(function()
+    refresh_scheduled[bufnr] = nil
+    local last = last_render[bufnr]
+    if last and vim.api.nvim_buf_is_valid(bufnr) then
+      render_right_columns(bufnr, last.adapter, last.displayed)
+    end
+  end)
+end
+
+render_right_columns = function(bufnr, adapter, displayed)
+  last_render[bufnr] = { adapter = adapter, displayed = displayed }
   local ns = vim.api.nvim_create_namespace("OilRightColumns")
   vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
 
@@ -742,8 +775,10 @@ local function render_right_columns(bufnr, adapter, displayed)
     end
   end
 
-  -- pass 2: pad and emit
-  for lnum = 1, #displayed do
+  -- pass 2: pad and emit. Never past the buffer's current end: a refresh can
+  -- run while the user is editing and the buffer has fewer lines than entries.
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  for lnum = 1, math.min(#displayed, line_count) do
     local virt_text = {}
     for i = 1, #defs do
       if i > 1 then

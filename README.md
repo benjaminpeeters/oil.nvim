@@ -54,7 +54,17 @@
 >   `absolute` (`format`);
 >   `filesize` with `min` (bytes, nothing shown below it, or `below` as a
 >   placeholder), formatted like `ls -h` in at most 4 characters, with colour
->   tiers from 1 MB to 10 GB; `permissions_hint`,
+>   tiers from 1 MB to 10 GB. Directories show nothing unless asked: their real
+>   size is a walk of everything under them, so it is opt-in through `dirs`:
+>   `mode` `budget` (stop after `max_files`, default 5000, and show a lower
+>   bound such as `>2.1G`) or `exact`; `async` (default true: the listing
+>   appears at once and sizes fill in) or false to wait; `cache_ttl` seconds
+>   (default 300) before a directory is walked again, also dropped when its own
+>   mtime changes or oil mutates anything; `source = "duc"` reads a pre-built
+>   index instead of walking, one call per listing (untested here: duc is not
+>   installed on this machine). A change made outside oil deep inside a
+>   directory is invisible until the TTL passes; that is a filesystem limit,
+>   not a bug. `permissions_hint`,
 >   showing `ro` or `x` only when they apply; and `count`, the number of
 >   entries in a subdirectory, which reads the directory and is therefore not
 >   in the default: `{ "count", max = 9 }` stops reading after ten entries and
