@@ -32,7 +32,13 @@ local default_config = {
   -- and count (max), which reads each subdirectory and is off by default.
   right_columns = {
     "permissions_hint",
-    { "filesize", min = 100e3, align = "right" },
+    {
+      "filesize",
+      min = 100e3,
+      align = "right",
+      -- directories too: a walk capped at 5000 files, done in the background
+      dirs = { mode = "budget", max_files = 5000, async = true },
+    },
     { "modified", style = "natural" },
   },
   -- Buffer-local options to use for oil buffers
