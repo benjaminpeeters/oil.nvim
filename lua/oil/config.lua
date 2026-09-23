@@ -117,7 +117,7 @@ local default_config = {
     ["M"] = "actions.move_to_dir",
     ["T"] = "actions.toggle_trash",
     ["gs"] = "actions.change_sort",
-    ["gc"] = "actions.toggle_right_columns",
+    ["gi"] = "actions.toggle_right_columns",
     [".."] = "actions.toggle_hidden",
   },
   -- Set to false to disable all of the above keymaps
